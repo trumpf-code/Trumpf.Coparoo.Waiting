@@ -597,7 +597,7 @@ namespace Trumpf.Coparoo.Waiting
         {
             try
             {
-                Task.Delay(timerPeriod, c).Wait();
+                Task.Run(() => Task.Delay(timerPeriod, c)).Wait();
             }
             catch (Exception)
             {
