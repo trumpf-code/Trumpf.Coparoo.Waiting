@@ -13,8 +13,8 @@ jobs:
         configuration: [Debug, Release]
     runs-on: windows-latest
     env:
-      Solution_Name: Trumpf.Coparoo.Desktop.sln
-      Test_Project_Path: Trumpf.Coparoo.Desktop.Tests\Trumpf.Coparoo.Desktop.Tests.csproj
+      Solution_Name: Trumpf.Coparoo.Waiting.sln
+      Test_Project_Path: Trumpf.Coparoo.Waiting.Tests\Trumpf.Coparoo.Waiting.Tests.csproj
       Package_Output_Dir: ${{ github.workspace }}\artifacts
       Test_Results_Dir: ${{ github.workspace }}\test-results
 
