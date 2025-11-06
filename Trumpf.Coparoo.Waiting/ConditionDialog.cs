@@ -429,6 +429,11 @@ namespace Trumpf.Coparoo.Waiting
 
         private static void Sleep(TimeSpan timerPeriod, CancellationToken c)
         {
+            if (timerPeriod <= TimeSpan.Zero)
+            {
+                return;
+            }
+
             try
             {
                 Task.Run(() => Task.Delay(timerPeriod, c)).Wait();

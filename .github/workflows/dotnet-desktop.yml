@@ -2,9 +2,9 @@ name: .NET Core Desktop
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -33,6 +33,11 @@ jobs:
     # Add MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v2
+
+    - name: Decode Key.snk from secret
+      run: |
+        $bytes = [System.Convert]::FromBase64String("${{ secrets.SIGNING_KEY_B64 }}")
+        [System.IO.File]::WriteAllBytes("Key.snk", $bytes)
 
     # Build the solution
     - name: Build
