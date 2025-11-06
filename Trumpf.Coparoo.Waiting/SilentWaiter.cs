@@ -70,7 +70,7 @@ namespace Trumpf.Coparoo.Waiting
             var stopwatch = Stopwatch.StartNew();
             var effectivePollingPeriod = pollingPeriod > TimeSpan.Zero ? pollingPeriod : TimeSpan.FromMilliseconds(100);
             var effectiveNegativeTimeout = negativeTimeout < TimeSpan.Zero ? TimeSpan.Zero : negativeTimeout;
-            
+
             bool isInfiniteTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
 
             // Main waiting loop
@@ -79,7 +79,7 @@ namespace Trumpf.Coparoo.Waiting
                 try
                 {
                     T result = default(T);
-                    
+
                     // Evaluate function if provided
                     if (function != null)
                     {
@@ -119,7 +119,7 @@ namespace Trumpf.Coparoo.Waiting
                     {
                         throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
                     }
-                    
+
                     if (stopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
                     {
                         Thread.Sleep(effectivePollingPeriod);
