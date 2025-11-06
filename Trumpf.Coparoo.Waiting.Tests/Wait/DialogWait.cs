@@ -20,6 +20,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using NUnit.Framework;
     using AwesomeAssertions;
     using Trumpf.Coparoo.Waiting.Exceptions;
+    using Trumpf.Coparoo.Waiting.Extensions;
 
     /// <summary>
     /// Dialog wait for tests
