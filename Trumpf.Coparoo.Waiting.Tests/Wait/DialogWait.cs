@@ -26,13 +26,13 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     /// Dialog wait for tests
     /// </summary>
     [TestFixture]
-    public class ConditionDialogForTests
+    public class ConditionDialogWaiterTests
     {
         private readonly TimeSpan @long = TimeSpan.FromSeconds(2);
         private readonly TimeSpan medium = TimeSpan.FromSeconds(1);
         private readonly TimeSpan none = TimeSpan.FromSeconds(0);
         private readonly TimeSpan @short = TimeSpan.FromMilliseconds(100);
-        private readonly ConditionDialog dialog = new ConditionDialog();
+        private readonly ConditionDialogWaiter dialog = new ConditionDialogWaiter();
 
         /// <summary>
         /// Positive case
@@ -192,7 +192,10 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
                 {
                     try
                     {
-                        new ConditionDialog().WaitFor(() => true, "sub wait", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(100));
+                                            Action a = () =>
+                    {
+                        new ConditionDialogWaiter().WaitFor(() => true, "sub wait", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(100));
+                    };
                         System.Threading.Thread.Sleep(250);
                         return true;
                     }

@@ -19,7 +19,7 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
     /// <summary>
     /// Interface for waiting functionality.
     /// </summary>
-    public interface IWait
+    public interface IWaiter
     {
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.

@@ -29,7 +29,7 @@ namespace Trumpf.Coparoo.Waiting
     /// <summary>
     /// Condition dialog class.
     /// </summary>
-    public class ConditionDialog : IWait
+    public class ConditionDialogWaiter : IWaiter
     {
         private readonly object m = new object();
         private State state;
@@ -44,9 +44,9 @@ namespace Trumpf.Coparoo.Waiting
         private static readonly TimeSpan positiveWaitTimeWithAction = TimeSpan.FromSeconds(2);
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ConditionDialog"/> class.
+        /// Initializes a new instance of the <see cref="ConditionDialogWaiter"/> class.
         /// </summary>
-        public ConditionDialog()
+        public ConditionDialogWaiter()
         {
         }
 

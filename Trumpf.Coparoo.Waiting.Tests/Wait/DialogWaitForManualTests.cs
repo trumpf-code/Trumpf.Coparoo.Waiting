@@ -25,9 +25,9 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
     /// Dialog wait for tests
     /// </summary>
     [TestFixture]
-    public class ConditionDialogForManualTests
+    public class ConditionDialogWaiterManualTests
     {
-        private readonly ConditionDialog dialog = new ConditionDialog();
+        private readonly ConditionDialogWaiter dialog = new ConditionDialogWaiter();
 
         /// <summary>
         /// Wait with action text.

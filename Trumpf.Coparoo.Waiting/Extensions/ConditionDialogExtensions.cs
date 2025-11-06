@@ -19,7 +19,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
     using Interfaces;
 
     /// <summary>
-    /// Extension methods for IWait.
+    /// Extension methods for IWaiter.
     /// </summary>
     public static class ConditionDialogExtensions
     {
@@ -35,7 +35,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
         /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void WaitFor(this IWait waiter, Func<bool> function, string expectationText)
+        public static void WaitFor(this IWaiter waiter, Func<bool> function, string expectationText)
         {
             waiter.WaitFor(function, expectationText, negativeWaitTime);
         }
@@ -48,7 +48,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="function">The function to evaluate.</param>
         /// <param name="condition">The condition to evaluate on the functions return value.</param>
         /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void WaitFor<T>(this IWait waiter, Func<T> function, Predicate<T> condition, string expectationText)
+        public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText)
         {
             waiter.WaitFor(function, condition, expectationText, negativeWaitTime);
         }
@@ -61,7 +61,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="function">The function to evaluate.</param>
         /// <param name="expectationText">Text that explains the function's expectation.</param>
         /// <param name="timeout">The timeout.</param>
-        public static void WaitFor(this IWait waiter, Func<bool> function, string expectationText, TimeSpan timeout)
+        public static void WaitFor(this IWaiter waiter, Func<bool> function, string expectationText, TimeSpan timeout)
         {
             waiter.WaitFor(function, expectationText, timeout, positiveWaitTime, timerPeriod, false);
         }
@@ -75,7 +75,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="condition">The condition to evaluate on the functions return value.</param>
         /// <param name="expectationText">Text that explains the function's expectation.</param>
         /// <param name="timeout">The timeout.</param>
-        public static void WaitFor<T>(this IWait waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan timeout)
+        public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan timeout)
         {
             waiter.WaitFor(function, condition, expectationText, timeout, positiveWaitTime, timerPeriod, false, null);
         }
@@ -90,7 +90,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="negativeTimeout">The negative timeout.</param>
         /// <param name="positiveTimeout">The positive timeout.</param>
         /// <param name="pollingPeriod">The polling time.</param>
-        public static void WaitFor(this IWait waiter, Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
+        public static void WaitFor(this IWaiter waiter, Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
         {
             waiter.WaitFor(function, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, false);
         }
@@ -106,7 +106,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="negativeTimeout">The negative timeout.</param>
         /// <param name="positiveTimeout">The positive timeout.</param>
         /// <param name="pollingPeriod">The polling time.</param>
-        public static void WaitFor<T>(this IWait waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
+        public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
         {
             waiter.WaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, false, null);
         }
@@ -121,7 +121,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="expectationText">Text that explains the function's expectation.</param>
         /// <param name="negativeTimeout">The negative timeout.</param>
         /// <param name="positiveTimeout">The positive timeout.</param>
-        public static void WaitFor<T>(this IWait waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
+        public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
         {
             waiter.WaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, timerPeriod, false, null);
         }
@@ -136,7 +136,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="expectationText">Text that explains the function's expectation.</param>
         /// <param name="negativeTimeout">The negative timeout.</param>
         /// <param name="positiveTimeout">The positive timeout.</param>
-        public static void WaitForAction<T>(this IWait waiter, string actionText, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
+        public static void WaitForAction<T>(this IWaiter waiter, string actionText, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
         {
             waiter.WaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, timerPeriod, false, actionText);
         }
@@ -149,7 +149,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="function">The function to evaluate.</param>
         /// <param name="condition">The condition to evaluate on the functions return value.</param>
         /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void WaitForAction<T>(this IWait waiter, string actionText, Func<T> function, Predicate<T> condition, string expectationText)
+        public static void WaitForAction<T>(this IWaiter waiter, string actionText, Func<T> function, Predicate<T> condition, string expectationText)
         {
             waiter.WaitFor(function, condition, expectationText, TimeSpan.MaxValue, positiveWaitTimeWithAction, timerPeriod, false, actionText);
         }
@@ -160,7 +160,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="actionText">The action to display.</param>
         /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void WaitForAction(this IWait waiter, string actionText, string expectationText)
+        public static void WaitForAction(this IWaiter waiter, string actionText, string expectationText)
         {
             waiter.WaitFor<object>(null, null, expectationText, TimeSpan.MaxValue, TimeSpan.Zero, timerPeriod, false, actionText);
         }
@@ -176,7 +176,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="positiveTimeout">The positive timeout.</param>
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
-        public static void WaitFor(this IWait waiter, Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough)
+        public static void WaitFor(this IWaiter waiter, Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough)
         {
             if (function == null)
             {
@@ -201,7 +201,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
-        public static void WaitFor<T>(this IWait waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
             waiter.Forr(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
         }
