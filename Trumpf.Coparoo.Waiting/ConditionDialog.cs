@@ -45,7 +45,7 @@ namespace Trumpf.Coparoo.Waiting
         /// <summary>
         /// Initializes a new instance of the <see cref="ConditionDialog"/> class.
         /// </summary>
-        private ConditionDialog()
+        public ConditionDialog()
         {
         }
 
@@ -104,172 +104,6 @@ namespace Trumpf.Coparoo.Waiting
             /// bad user exit state.
             /// </summary>
             bad_userexit
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void For(Func<bool> function, string expectationText)
-        {
-            For(function, expectationText, negativeWaitTime);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void For<T>(Func<T> function, Predicate<T> condition, string expectationText)
-        {
-            For(function, condition, expectationText, negativeWaitTime);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="timeout">The timeout.</param>
-        public static void For(Func<bool> function, string expectationText, TimeSpan timeout)
-        {
-            For(function, expectationText, timeout, positiveWaitTime, timerPeriod, false);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="timeout">The timeout.</param>
-        public static void For<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan timeout)
-        {
-            For(function, condition, expectationText, timeout, positiveWaitTime, timerPeriod, false, null);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        public static void For(Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
-        {
-            For(function, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, false);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        public static void For<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
-        {
-            For(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, false, null);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        public static void For<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
-        {
-            For(function, condition, expectationText, negativeTimeout, positiveTimeout, timerPeriod, false, null);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>. Shows an action text.
-        /// </summary>
-        /// <param name="actionText">The action to display.</param>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        public static void ForAction<T>(string actionText, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
-        {
-            For(function, condition, expectationText, negativeTimeout, positiveTimeout, timerPeriod, false, actionText);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>. Shows an action text.
-        /// </summary>
-        /// <param name="actionText">The action to display.</param>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void ForAction<T>(string actionText, Func<T> function, Predicate<T> condition, string expectationText)
-        {
-            For(function, condition, expectationText, TimeSpan.MaxValue, positiveWaitTimeWithAction, timerPeriod, false, actionText);
-        }
-
-        /// <summary>
-        /// Shows the action and expectation text. Requires manual acknowledgment.
-        /// </summary>
-        /// <param name="actionText">The action to display.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void ForAction(string actionText, string expectationText)
-        {
-            For<object>(null, null, expectationText, TimeSpan.MaxValue, TimeSpan.Zero, timerPeriod, false, actionText);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        /// <param name="clickThrough">Whether to enable click-through mode.</param>
-        public static void For(Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough)
-        {
-            if (function == null)
-            {
-                For<object>(null, null, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, null);
-            }
-            else
-            {
-                For<object>(null, _ => function(), expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, null);
-            }
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog including the current value.
-        /// </summary>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        /// <param name="clickThrough">Whether to enable click-through mode.</param>
-        /// <param name="actionText">The action text.</param>
-        public static void For<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
-        {
-            new ConditionDialog().Forr(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
         }
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
@@ -515,7 +349,7 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
-        private void Forr<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        public void Forr<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
             try
             {

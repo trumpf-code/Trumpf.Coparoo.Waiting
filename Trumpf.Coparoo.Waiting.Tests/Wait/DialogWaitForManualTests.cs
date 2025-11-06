@@ -26,13 +26,15 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
     [TestFixture]
     public class ConditionDialogForManualTests
     {
+        private readonly ConditionDialog dialog = new ConditionDialog();
+
         /// <summary>
         /// Wait with action text.
         /// </summary>
         [Test]
         [Ignore("This is a manual tests and cannot be executed in a CI")]
         public void ConditionDialogForTenActions()
-            => ConditionDialog.ForAction(actionText(10), expectationText(10));
+            => dialog.WaitForAction(actionText(10), expectationText(10));
 
         /// <summary>
         /// Wait with action text.
@@ -40,7 +42,7 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
         [Test]
         [Ignore("This is a manual tests and cannot be executed in a CI")]
         public void ConditionDialogForThreeActions()
-            => ConditionDialog.ForAction(actionText(3), expectationText(3));
+            => dialog.WaitForAction(actionText(3), expectationText(3));
 
         /// <summary>
         /// Wait with action text.
@@ -48,7 +50,7 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
         [Test]
         [Ignore("This is a manual tests and cannot be executed in a CI")]
         public void ConditionDialogForTwoActions()
-            => ConditionDialog.ForAction(actionText(2), expectationText(2));
+            => dialog.WaitForAction(actionText(2), expectationText(2));
 
         /// <summary>
         /// Wait with action text.
@@ -56,7 +58,7 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
         [Test]
         [Ignore("This is a manual tests and cannot be executed in a CI")]
         public void ConditionDialogForOneAction()
-            => ConditionDialog.ForAction(actionText(1), expectationText(1));
+            => dialog.WaitForAction(actionText(1), expectationText(1));
 
         private string actionText(int i)
             => text("action", i);

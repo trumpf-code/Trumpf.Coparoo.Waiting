@@ -18,6 +18,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using System.Linq;
 
     using NUnit.Framework;
+    using AwesomeAssertions;
     using Trumpf.Coparoo.Waiting.Exceptions;
 
     /// <summary>
@@ -30,34 +31,35 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         private readonly TimeSpan medium = TimeSpan.FromSeconds(1);
         private readonly TimeSpan none = TimeSpan.FromSeconds(0);
         private readonly TimeSpan @short = TimeSpan.FromMilliseconds(100);
+        private readonly ConditionDialog dialog = new ConditionDialog();
 
         /// <summary>
         /// Positive case
         /// </summary>
         [Test]
         public void IfTheConditionIsTrue_ThenNoExceptionIsThrown_FastContinue()
-            => ConditionDialog.For(() => true, "Empty", @long, TimeSpan.FromSeconds(0), @short);
+            => dialog.WaitFor(() => true, "Empty", @long, TimeSpan.FromSeconds(0), @short);
 
         /// <summary>
         /// Negative case
         /// </summary>
         [Test]
         public void IfTheConditionIsTrue_ThenNoExceptionIsThrown_ClickThrough()
-            => ConditionDialog.For(() => true, "Door is closed", @long, @long, @short, true);
+            => dialog.WaitFor(() => true, "Door is closed", @long, @long, @short, true);
 
         /// <summary>
         /// Positive case
         /// </summary>
         [Test]
         public void IfTheConditionIsTrue_ThenNoExceptionIsThrown()
-            => ConditionDialog.For(() => true, "Empty", @long, medium, @short);
+            => dialog.WaitFor(() => true, "Empty", @long, medium, @short);
 
         /// <summary>
         /// Positive case
         /// </summary>
         [Test]
         public void LongExpectationText_IsShownInTwoLines()
-            => ConditionDialog.For(() => true, "We wait until the expected condition turns to true, so we can continue with the test.", @long, medium, @short);
+            => dialog.WaitFor(() => true, "We wait until the expected condition turns to true, so we can continue with the test.", @long, medium, @short);
 
         /// <summary>
         /// If the condition is false, exception is thrown with exception message.
@@ -65,18 +67,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public void IfTheConditionIsFalse_ExceptionIsThrown_WithExceptionMessage()
         {
-            Assert.Throws<WaitForTimeoutException>(() =>
-            {
-                try
-                {
-                    ConditionDialog.For(() => false, "Order list is empty", @long, medium, @short);
-                }
-                catch (WaitForTimeoutException e)
-                {
-                    Assert.AreEqual("Timeout of " + @long.TotalSeconds.ToString("0.00") + " seconds exceeded when waiting for 'Order list is empty'", e.Message);
-                    throw;
-                }
-            });
+            Action act = () => dialog.WaitFor(() => false, "Order list is empty", @long, medium, @short);
+            act.Should().Throw<WaitForTimeoutException>()
+                .WithMessage("Timeout of " + @long.TotalSeconds.ToString("0.00") + " seconds exceeded when waiting for 'Order list is empty'");
         }
 
         /// <summary>
@@ -84,14 +77,20 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         /// </summary>
         [Test]
         public void IfTheConditionIsNull_ThenTimeout()
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(null, "Empty", @long, medium, @short));
+        {
+            Action act = () => dialog.WaitFor(null, "Empty", @long, medium, @short);
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Negative case
         /// </summary>
         [Test]
         public void IfTheConditionIsFalse_ThenTimeout()
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => false, "Empty", @long, medium, @short));
+        {
+            Action act = () => dialog.WaitFor(() => false, "Empty", @long, medium, @short);
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Negative case
@@ -100,7 +99,8 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         public void IfTheConditionIsFalse_ThenTimeout_LazyCondition()
         {
             int i = 0;
-            Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => { System.Threading.Thread.Sleep(1000); return i++; }, j => j == 2, "Empty", @long, medium, @short));
+            Action act = () => dialog.WaitFor(() => { System.Threading.Thread.Sleep(1000); return i++; }, j => j == 2, "Empty", @long, medium, @short);
+            act.Should().Throw<WaitForTimeoutException>();
         }
 
         /// <summary>
@@ -108,15 +108,21 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         /// </summary>
         [Test]
         public void IfTheConditionIsFalse_ThenTimeout_ZeroPollingTime()
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => false, "Empty", @long, medium, TimeSpan.Zero));
+        {
+            Action act = () => dialog.WaitFor(() => false, "Empty", @long, medium, TimeSpan.Zero);
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Negative case
         /// </summary>
         [Test]
         public void IfTheConditionIsFalseAndMaxPositiveTimeout_ThenTimeout()
+        {
             // no negative timeout should be displayed on the UI
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => false, "Empty", @long, TimeSpan.MaxValue, @short));
+            Action act = () => dialog.WaitFor(() => false, "Empty", @long, TimeSpan.MaxValue, @short);
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Positive case
@@ -124,35 +130,44 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public void IfTheConditionIsTrueAndMaxNegativeTimeout_ThenNoExceptionIsThrown()
             // no negative timeout should be displayed on the UI
-            => ConditionDialog.For(() => true, "Empty", TimeSpan.MaxValue, @long, @short);
+            => dialog.WaitFor(() => true, "Empty", TimeSpan.MaxValue, @long, @short);
 
         /// <summary>
         /// Negative case
         /// </summary>
         [Test]
         public void IfTheConditionIsTrue_ThenNoExceptionIsThrown_TimeoutBeforeFirstPoll()
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => false, "Empty", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)));
+        {
+            Action act = () => dialog.WaitFor(() => false, "Empty", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Negative case
         /// </summary>
         [Test]
         public void IfTheConditionIsTrue_ThenNoExceptionIsThrown_ZeroTimes()
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => false, "Empty", TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(0)));
+        {
+            Action act = () => dialog.WaitFor(() => false, "Empty", TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(0));
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Negative case
         /// </summary>
         [Test]
         public void IfTheConditionIsTrue_ThenNoExceptionIsThrown_NegativeTimes()
-            => Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => false, "Empty", TimeSpan.FromSeconds(-10), TimeSpan.FromSeconds(-10), TimeSpan.FromSeconds(-10)));
+        {
+            Action act = () => dialog.WaitFor(() => false, "Empty", TimeSpan.FromSeconds(-10), TimeSpan.FromSeconds(-10), TimeSpan.FromSeconds(-10));
+            act.Should().Throw<WaitForTimeoutException>();
+        }
 
         /// <summary>
         /// Positive case
         /// </summary>
         [Test]
         public void Repeat_IfTheConditionIsTrue_ThenNoExceptionIsThrown()
-            => Enumerable.Range(0, 50).ToList().ForEach(_ => ConditionDialog.For(() => true, "Empty", @long, none, @short));
+            => Enumerable.Range(0, 50).ToList().ForEach(_ => dialog.WaitFor(() => true, "Empty", @long, none, @short));
 
         /// <summary>
         /// Negative case
@@ -161,7 +176,8 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         public void IfTheConditionIsFlipsBad_ThenTimeout()
         {
             bool b = false;
-            Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => b = !b, "Empty", @long, medium, TimeSpan.FromMilliseconds(500)));
+            Action act = () => dialog.WaitFor(() => b = !b, "Empty", @long, medium, TimeSpan.FromMilliseconds(500));
+            act.Should().Throw<WaitForTimeoutException>();
         }
 
         /// <summary>
@@ -170,12 +186,12 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public void IfTheNestedConditionsAreTrue_ThenNoExceptionIsThrown()
         {
-            ConditionDialog.For(
+            dialog.WaitFor(
                 () =>
                 {
                     try
                     {
-                        ConditionDialog.For(() => true, "sub wait", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(100));
+                        new ConditionDialog().WaitFor(() => true, "sub wait", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(100));
                         System.Threading.Thread.Sleep(250);
                         return true;
                     }
@@ -197,7 +213,8 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         public void IfTheConditionIsFlipsBad_ThenTimeout_ShowCurrentValue()
         {
             int i = 0;
-            Assert.Throws<WaitForTimeoutException>(() => ConditionDialog.For(() => ++i, v => v % 2 == 0, "Even", medium, medium, @short, false, null));
+            Action act = () => dialog.WaitFor(() => ++i, v => v % 2 == 0, "Even", medium, medium, @short, false, null);
+            act.Should().Throw<WaitForTimeoutException>();
         }
 
         /// <summary>
@@ -208,7 +225,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         {
             int exp = 10;
             int i = 0;
-            ConditionDialog.ForAction("don't do anything", () => i != exp ? i++ : i, value => value == exp, $"value is {exp}");
+            dialog.WaitForAction("don't do anything", () => i != exp ? i++ : i, value => value == exp, $"value is {exp}");
         }
     }
 }
