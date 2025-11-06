@@ -24,11 +24,12 @@ namespace Trumpf.Coparoo.Waiting
     using System.Windows.Forms;
 
     using Exceptions;
+    using Interfaces;
 
     /// <summary>
     /// Condition dialog class.
     /// </summary>
-    public class ConditionDialog
+    public class ConditionDialog : IWait
     {
         private readonly object m = new object();
         private State state;
