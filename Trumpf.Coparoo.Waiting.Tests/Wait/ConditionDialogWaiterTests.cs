@@ -23,6 +23,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using Trumpf.Coparoo.Waiting.Extensions;
     using Trumpf.Coparoo.Waiting.Interfaces;
     using Trumpf.Coparoo.Waiting.Tests.Base;
+    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
 
     /// <summary>
     /// Dialog wait for tests using ConditionDialogWaiter
@@ -75,7 +76,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         {
             int exp = 10;
             int i = 0;
-            waiter.WaitForAction("don't do anything", () => i != exp ? i++ : i, value => value == exp, $"value is {exp}");
+            waiter.WaitForUserAction("don't do anything", () => i != exp ? i++ : i, value => value == exp, $"value is {exp}");
         }
     }
 }

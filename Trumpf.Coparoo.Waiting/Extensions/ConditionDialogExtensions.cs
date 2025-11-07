@@ -26,7 +26,6 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         private static readonly TimeSpan timerPeriod = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan positiveWaitTime = TimeSpan.FromSeconds(0);
-        private static readonly TimeSpan positiveWaitTimeWithAction = TimeSpan.FromSeconds(2);
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
@@ -124,45 +123,6 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
         {
             waiter.WaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, timerPeriod, false, null);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>. Shows an action text.
-        /// </summary>
-        /// <param name="waiter">The waiter instance.</param>
-        /// <param name="actionText">The action to display.</param>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        /// <param name="negativeTimeout">The negative timeout.</param>
-        /// <param name="positiveTimeout">The positive timeout.</param>
-        public static void WaitForAction<T>(this IWaiter waiter, string actionText, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout)
-        {
-            waiter.WaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, timerPeriod, false, actionText);
-        }
-
-        /// <summary>
-        /// Waits until a function evaluates to <c>true</c>. Shows an action text.
-        /// </summary>
-        /// <param name="waiter">The waiter instance.</param>
-        /// <param name="actionText">The action to display.</param>
-        /// <param name="function">The function to evaluate.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void WaitForAction<T>(this IWaiter waiter, string actionText, Func<T> function, Predicate<T> condition, string expectationText)
-        {
-            waiter.WaitFor(function, condition, expectationText, TimeSpan.MaxValue, positiveWaitTimeWithAction, timerPeriod, false, actionText);
-        }
-
-        /// <summary>
-        /// Shows the action and expectation text. Requires manual acknowledgment.
-        /// </summary>
-        /// <param name="waiter">The waiter instance.</param>
-        /// <param name="actionText">The action to display.</param>
-        /// <param name="expectationText">Text that explains the function's expectation.</param>
-        public static void WaitForAction(this IWaiter waiter, string actionText, string expectationText)
-        {
-            waiter.WaitFor<object>(null, null, expectationText, TimeSpan.MaxValue, TimeSpan.Zero, timerPeriod, false, actionText);
         }
 
         /// <summary>

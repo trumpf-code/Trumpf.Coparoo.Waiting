@@ -22,6 +22,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using Trumpf.Coparoo.Waiting.Extensions;
     using Trumpf.Coparoo.Waiting.Interfaces;
     using Trumpf.Coparoo.Waiting.Tests.Base;
+    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
 
     /// <summary>
     /// Silent wait tests using SilentWaiter
@@ -200,7 +201,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public void IfActionTextIsProvided_ThenInvalidOperationException()
         {
-            Action act = () => waiter.WaitForAction("do something", () => 1, v => v == 1, "value is 1");
+            Action act = () => waiter.WaitForUserAction("do something", () => 1, v => v == 1, "value is 1");
             act.Should().Throw<InvalidOperationException>()
                 .WithMessage("SilentWaiter does not support action text as it requires human interaction.");
         }
