@@ -163,7 +163,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
         /// <param name="actionText">The action text.</param>
         public static void WaitFor<T>(this IWaiter waiter, Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
-            waiter.Forr(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
+            waiter.GenericWaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
         }
     }
 }
