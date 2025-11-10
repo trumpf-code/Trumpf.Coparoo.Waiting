@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if DEBUG
 namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
 {
     using System;
@@ -72,4 +71,3 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
             .Aggregate(t, (a, b) => a + Environment.NewLine + b);
     }
 }
-#endif
