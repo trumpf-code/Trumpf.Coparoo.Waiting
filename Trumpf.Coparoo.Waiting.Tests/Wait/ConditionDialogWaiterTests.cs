@@ -15,15 +15,12 @@
 namespace Trumpf.Coparoo.Waiting.Tests.Wait
 {
     using System;
-    using System.Linq;
 
     using NUnit.Framework;
-    using AwesomeAssertions;
-    using Trumpf.Coparoo.Waiting.Exceptions;
     using Trumpf.Coparoo.Waiting.Extensions;
+    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
     using Trumpf.Coparoo.Waiting.Interfaces;
     using Trumpf.Coparoo.Waiting.Tests.Base;
-    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
 
     /// <summary>
     /// Dialog wait for tests using ConditionDialogWaiter
