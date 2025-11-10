@@ -40,7 +40,7 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
         /// Wait with action text.
         /// </summary>
         [Test]
-        [Ignore("This is a manual tests and cannot be executed in a CI")]
+        //[Ignore("This is a manual tests and cannot be executed in a CI")]
         public void ConditionDialogForThreeActions()
             => dialog.WaitForUserAction(actionText(3), expectationText(3));
 
@@ -56,7 +56,7 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
         /// Wait with action text.
         /// </summary>
         [Test]
-        [Ignore("This is a manual tests and cannot be executed in a CI")]
+        //[Ignore("This is a manual tests and cannot be executed in a CI")]
         public void ConditionDialogForOneAction()
             => dialog.WaitForUserAction(actionText(1), expectationText(1));
 

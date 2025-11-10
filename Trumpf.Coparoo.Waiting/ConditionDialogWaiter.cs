@@ -25,6 +25,7 @@ namespace Trumpf.Coparoo.Waiting
 
     using Exceptions;
     using Interfaces;
+    using UI;
 
     /// <summary>
     /// Condition dialog class.
@@ -49,6 +50,11 @@ namespace Trumpf.Coparoo.Waiting
         public ConditionDialogWaiter()
         {
         }
+
+    /// <summary>
+    /// Gets or sets the dialog opacity (0.0 - 1.0). Default is 0.95 for readable translucency.
+    /// </summary>
+    public double DialogOpacity { get; set; } = 0.95;
 
         /// <summary>
         /// Windows enum for enabling click-through.
@@ -360,7 +366,14 @@ namespace Trumpf.Coparoo.Waiting
                     state = State.init;
                     this.positiveTimeout = positiveTimeout;
                     this.negativeTimeout = negativeTimeout;
-                    uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+                    uic = new DialogView(
+                        negativeTimeout != TimeSpan.MaxValue,
+                        positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero,
+                        clickThrough,
+                        function != null,
+                        actionText,
+                        expectationText.Split('\n').Count(),
+                        DialogOpacity);
 
                     // spawn
                     var c = new CancellationTokenSource();
@@ -493,17 +506,8 @@ namespace Trumpf.Coparoo.Waiting
         /// </summary>
         private class DialogView
         {
-            // create and add dialog components
-            private readonly Label expectedHeaderLabel;
-            private readonly Label expectedTextLabel;
-            private readonly Label actionHeaderLabel;
-            private readonly Label actionTextLabel;
-            private readonly Label valueLabel;
-            private readonly Label autoActionGoodLabel;
-            private readonly Label autoActionBadLabel;
-            private readonly Button positiveButton;
-            private readonly Button negativeButton;
             private readonly Form dialog;
+            private readonly WaitingDialogLayout layout;
             private readonly bool clickThrough;
             private readonly bool showCurrentValue;
 
@@ -516,92 +520,29 @@ namespace Trumpf.Coparoo.Waiting
             /// <param name="showCurrentValue">Whether to show the current value.</param>
             /// <param name="actionText">The action text.</param>
             /// <param name="expectationLines">The expectation lines.</param>
-            public DialogView(bool showAutoActionBadLabel, bool showAutoActionGoodLabel, bool clickThrough, bool showCurrentValue, string actionText, int expectationLines)
+            /// <param name="opacity">The desired window opacity (0.0 - 1.0).</param>
+            public DialogView(bool showAutoActionBadLabel, bool showAutoActionGoodLabel, bool clickThrough, bool showCurrentValue, string actionText, int expectationLines, double opacity)
             {
                 this.clickThrough = clickThrough;
                 this.showCurrentValue = showCurrentValue;
 
-                const int WIDTH = 500;
-                const int SPACE = 10;
-                const int BUTTON_HEIGHT = 60;
-                const int ITOP = 20;
-                const int LEFT = 30;
-                int top = ITOP;
-
-                var font = new Font(FontFamily.GenericSansSerif, 12, FontStyle.Bold);
-                var headerFont = new Font(FontFamily.GenericSansSerif, 14, FontStyle.Bold);
-
-                // dialog
-                dialog = new Form() { Width = LEFT + WIDTH, FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, Opacity = 0.8, StartPosition = FormStartPosition.Manual, Visible = false, TopMost = false };
-
-                if (!clickThrough)
+                // Create dialog with modern styling
+                dialog = new Form
                 {
-                    var dialogWidth = dialog.Width;
+                    Visible = false,
+                    TopMost = false,
+                    Opacity = Math.Min(1.0, Math.Max(0.0, opacity)) // clamp user value
+                };
 
-                    top += SPACE;
-
-                    // positive button
-                    dialog.Controls.Add(positiveButton = new Button() { Left = dialogWidth / 2, Height = BUTTON_HEIGHT, Width = dialogWidth / 2, Top = top, DialogResult = DialogResult.OK, Text = "Positive", FlatStyle = FlatStyle.Flat, Font = font });
-
-                    // negative button
-                    dialog.Controls.Add(negativeButton = new Button() { Left = 0, Height = BUTTON_HEIGHT, Width = dialogWidth / 2, Top = top, DialogResult = DialogResult.Cancel, Text = "Negative", FlatStyle = FlatStyle.Flat, BackColor = Color.Red, Font = font });
-
-                    top += BUTTON_HEIGHT;
-                    top += SPACE;
-                }
-
-                // expected header
-                dialog.Controls.Add(expectedHeaderLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = headerFont, Height = headerFont.Height, Text = "Expectation" });
-                top += expectedHeaderLabel.Height;
-
-                // expected text
-                dialog.Controls.Add(expectedTextLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = font, Height = font.Height });
-                top += expectationLines * expectedTextLabel.Height;
-                expectedTextLabel.Height = expectationLines * expectedTextLabel.Height;
-                expectedTextLabel.AutoSize = true;
-
-                if (actionText != null)
-                {
-                    top += SPACE;
-
-                    // action header
-                    dialog.Controls.Add(actionHeaderLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = headerFont, Height = headerFont.Height, Text = "Action" });
-                    top += actionHeaderLabel.Height;
-
-                    // action text
-                    dialog.Controls.Add(actionTextLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = font, Height = font.Height });
-                    var actionLines = actionText.Split('\n').Count();
-                    top += actionLines * actionTextLabel.Height;
-                    actionTextLabel.Height = actionLines * actionTextLabel.Height;
-                    actionTextLabel.AutoSize = true;
-                }
-
-                if (showCurrentValue)
-                {
-                    top += SPACE;
-                    dialog.Controls.Add(valueLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = font, Height = font.Height });
-                    top += valueLabel.Height;
-                }
-
-                // good timeout label
-                if (showAutoActionGoodLabel)
-                {
-                    top += SPACE;
-                    dialog.Controls.Add(autoActionGoodLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = font, Height = font.Height });
-                    top += autoActionGoodLabel.Height;
-                }
-
-                // bad timeout label
-                if (showAutoActionBadLabel)
-                {
-                    top += SPACE;
-                    dialog.Controls.Add(autoActionBadLabel = new Label() { Left = LEFT, Top = top, Width = WIDTH, Font = font, Height = font.Height });
-                    top += autoActionBadLabel.Height;
-                }
-
-                // set dialog size
-                dialog.Height = top + ITOP;
-                dialog.Location = new Point(Screen.PrimaryScreen.Bounds.Width - dialog.Width, 0);
+                // Create modern layout
+                layout = new WaitingDialogLayout(
+                    dialog,
+                    !clickThrough,  // Show buttons if not click-through
+                    showAutoActionGoodLabel,
+                    showAutoActionBadLabel,
+                    showCurrentValue,
+                    actionText != null,
+                    expectationLines);
             }
 
             /// <summary>
@@ -609,7 +550,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public TimeSpan AutoActionGoodText
             {
-                set { Invoke(() => autoActionGoodLabel.Text = "Continue in " + value.TotalSeconds.ToString("0.0") + " seconds", autoActionGoodLabel != null); }
+                set { Invoke(() => layout.AutoActionGoodLabel.Text = "Continue in " + value.TotalSeconds.ToString("0.0") + " seconds", layout.AutoActionGoodLabel != null); }
             }
 
             /// <summary>
@@ -617,7 +558,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public TimeSpan AutoActionBadText
             {
-                set { Invoke(() => autoActionBadLabel.Text = "Abort in " + value.TotalSeconds.ToString("0.0") + " seconds", autoActionBadLabel != null); }
+                set { Invoke(() => layout.AutoActionBadLabel.Text = "Abort in " + value.TotalSeconds.ToString("0.0") + " seconds", layout.AutoActionBadLabel != null); }
             }
 
             /// <summary>
@@ -625,7 +566,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public string ExpectationText
             {
-                set { Invoke(() => expectedTextLabel.Text = value); }
+                set { Invoke(() => layout.ExpectationTextLabel.Text = value); }
             }
 
             /// <summary>
@@ -633,7 +574,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public string ActionText
             {
-                set { Invoke(() => actionTextLabel.Text = value); }
+                set { Invoke(() => layout.ActionTextLabel.Text = value); }
             }
 
             /// <summary>
@@ -641,7 +582,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public string GoodButtonText
             {
-                set { Invoke(() => positiveButton.Text = value); }
+                set { Invoke(() => layout.PositiveButton.Text = value); }
             }
 
             /// <summary>
@@ -649,7 +590,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public string BadButtonText
             {
-                set { Invoke(() => negativeButton.Text = value); }
+                set { Invoke(() => layout.NegativeButton.Text = value); }
             }
 
             /// <summary>
@@ -657,7 +598,7 @@ namespace Trumpf.Coparoo.Waiting
             /// </summary>
             public string Value
             {
-                set { Invoke(() => valueLabel.Text = "Observed value: " + value, showCurrentValue); }
+                set { Invoke(() => layout.ValueLabel.Text = "Observed value: " + value, showCurrentValue); }
             }
 
             /// <summary>
@@ -669,12 +610,15 @@ namespace Trumpf.Coparoo.Waiting
                 {
                     Invoke(() =>
                     {
-                        if (positiveButton != null)
+                        if (layout.PositiveButton != null)
                         {
-                            positiveButton.Enabled = !(value == false);
+                            layout.PositiveButton.Enabled = !(value == false);
                         }
 
-                        dialog.BackColor = !value.HasValue ? Color.Gray : (value == true ? Color.Green : Color.Red);
+                        // Update dialog state with smooth transition
+                        DialogState newState = !value.HasValue ? DialogState.Unknown :
+                                               (value == true ? DialogState.Success : DialogState.Error);
+                        layout.SetState(newState);
                         dialog.Invalidate();
                     });
                 }
@@ -709,14 +653,15 @@ namespace Trumpf.Coparoo.Waiting
             public void UI(Action dialogLoad, Action badClick, Action goodClick)
             {
                 dialog.Load += (s, o) => dialogLoad();
-                if (negativeButton != null)
+
+                if (layout.NegativeButton != null)
                 {
-                    negativeButton.Click += (s, o) => badClick();
+                    layout.NegativeButton.Click += (s, o) => badClick();
                 }
 
-                if (positiveButton != null)
+                if (layout.PositiveButton != null)
                 {
-                    positiveButton.Click += (s, o) => goodClick();
+                    layout.PositiveButton.Click += (s, o) => goodClick();
                 }
 
                 if (!clickThrough)
@@ -740,6 +685,7 @@ namespace Trumpf.Coparoo.Waiting
             public void Close()
             {
                 Invoke(() => {
+                    layout?.Dispose();
                     dialog.Close();
                     dialog.Dispose();
                 });
