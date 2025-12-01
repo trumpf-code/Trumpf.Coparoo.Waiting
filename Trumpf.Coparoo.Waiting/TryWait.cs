@@ -23,6 +23,8 @@ namespace Trumpf.Coparoo.Waiting
     /// </summary>
     public static class TryWait
     {
+        private static readonly SilentWaiter silentWaiter = new SilentWaiter();
+
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
         /// </summary>
@@ -90,14 +92,21 @@ namespace Trumpf.Coparoo.Waiting
         /// <returns>If the condition turned true.</returns>
         private static bool InternalWait<T>(Func<T> function, Predicate<T> condition, TimeSpan? timeout = null, TimeSpan? retryPause = null)
         {
+            timeout = timeout ?? TimeSpan.FromSeconds(20);
+            retryPause = retryPause ?? TimeSpan.FromMilliseconds(100);
+
             try
             {
-                Wait.RetryUntilSuccessOrTimeout(function, condition, timeout, retryPause);
+                silentWaiter.GenericWaitFor(
+                    function,
+                    condition,
+                    string.Empty,
+                    timeout.Value,
+                    TimeSpan.Zero,
+                    retryPause.Value,
+                    false,
+                    null);
                 return true;
-            }
-            catch (TimeoutException)
-            {
-                return false;
             }
             catch
             {

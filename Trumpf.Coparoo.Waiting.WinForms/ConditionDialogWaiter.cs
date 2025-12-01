@@ -1,4 +1,4 @@
-﻿// Copyright 2016 - 2025 TRUMPF Werkzeugmaschinen GmbH + Co. KG.
+// Copyright 2016 - 2025 TRUMPF Werkzeugmaschinen GmbH + Co. KG.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Trumpf.Coparoo.Waiting
+namespace Trumpf.Coparoo.Waiting.WinForms
 {
     using System;
     using System.Diagnostics;
@@ -23,8 +23,8 @@ namespace Trumpf.Coparoo.Waiting
     using System.Threading.Tasks;
     using System.Windows.Forms;
 
-    using Exceptions;
-    using Interfaces;
+    using Trumpf.Coparoo.Waiting.Exceptions;
+    using Trumpf.Coparoo.Waiting.Interfaces;
 
     /// <summary>
     /// Condition dialog class.
@@ -408,6 +408,74 @@ namespace Trumpf.Coparoo.Waiting
         }
 
         /// <summary>
+        /// Waits until an async function evaluates to <c>true</c>.
+        /// Shows a dialog.
+        /// </summary>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The async condition to evaluate on the functions return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation.</param>
+        /// <param name="negativeTimeout">The negative timeout.</param>
+        /// <param name="positiveTimeout">The positive timeout.</param>
+        /// <param name="pollingPeriod">The polling time.</param>
+        /// <param name="clickThrough">Whether to enable click-through mode.</param>
+        /// <param name="actionText">The action text.</param>
+        public async Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        {
+            try
+            {
+                await Task.Run(async () =>
+                {
+                    // init
+                    state = State.init;
+                    this.positiveTimeout = positiveTimeout;
+                    this.negativeTimeout = negativeTimeout;
+                    uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+
+                    // spawn
+                    var c = new CancellationTokenSource();
+                    Task ui = new Task(() => uic.UI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick), c.Token);
+                    Task ti = new Task(() => Timer(c.Token));
+                    Task po = EvaluatorAsync(c.Token, function, condition, pollingPeriod);
+
+                    // join
+                    ui.Start();
+                    ti.Start();
+                    await ui;
+
+                    c.Cancel();
+                    await ti;
+                    await po;
+
+                    switch (state)
+                    {
+                        case State.good_userexit:
+                        case State.good_timedout:
+                            return;
+
+                        case State.bad_timedout:
+                            throw new WaitForTimeoutException(expectationText, negativeTimeout);
+
+                        case State.bad_userexit:
+                            throw new WaitForAbortedException(expectationText);
+
+                        default: throw new InvalidOperationException(state.ToString());
+                    }
+                }).ConfigureAwait(false);
+            }
+            catch (AggregateException e)
+            {
+                if (e.InnerException != null)
+                {
+                    throw e.InnerException;
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
         /// Timer function.
         /// </summary>
         /// <param name="c">The cancellation token.</param>
@@ -475,6 +543,50 @@ namespace Trumpf.Coparoo.Waiting
                 }
 
                 truth = condition(value);
+                if (first || !truth.Equals(lastTruth))
+                {
+                    OnTruthChanged(truth);
+                    lastTruth = truth;
+                }
+
+                var remaining = pollingPeriod - stopwatch.Elapsed;
+                Sleep(remaining, c);
+
+                first = false;
+            }
+        }
+
+        /// <summary>
+        /// Async evaluator function.
+        /// </summary>
+        /// <param name="c">The cancellation token.</param>
+        /// <param name="function">The function to call periodically.</param>
+        /// <param name="condition">The async condition to evaluate on the functions return value.</param>
+        /// <param name="pollingPeriod">The polling time.</param>
+        private async Task EvaluatorAsync<T>(CancellationToken c, Func<T> function, Func<T, Task<bool>> condition, TimeSpan pollingPeriod)
+        {
+            var stopwatch = new Stopwatch();
+
+            bool first = true;
+            T lastValue = default;
+            T value = default;
+            bool lastTruth = default;
+            bool truth = default;
+            while (condition != null && !c.IsCancellationRequested)
+            {
+                stopwatch.Restart();
+
+                if (function != null)
+                {
+                    value = function();
+                    if (first || !value.Equals(lastValue))
+                    {
+                        OnValueChanged(value.ToString());
+                        lastValue = value;
+                    }
+                }
+
+                truth = await condition(value).ConfigureAwait(false);
                 if (first || !truth.Equals(lastTruth))
                 {
                     OnTruthChanged(truth);

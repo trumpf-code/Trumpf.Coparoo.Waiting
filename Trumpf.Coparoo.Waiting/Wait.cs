@@ -24,6 +24,8 @@ namespace Trumpf.Coparoo.Waiting
     /// </summary>
     public static class Wait
     {
+        private static readonly SilentWaiter silentWaiter = new SilentWaiter();
+
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
         /// </summary>
@@ -181,21 +183,32 @@ namespace Trumpf.Coparoo.Waiting
             timeout = timeout ?? TimeSpan.FromSeconds(20);
             retryPause = retryPause ?? TimeSpan.FromMilliseconds(100);
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            List<T> result = new List<T>();
-            do
+            T result = default(T);
+            List<T> results = new List<T>();
+            
+            try
             {
-                result.Add(function());
-                if (condition(result.Last()))
-                {
-                    return result.Last();
-                }
-
-                System.Threading.Thread.Sleep(retryPause.Value);
+                silentWaiter.GenericWaitFor(
+                    function,
+                    arg =>
+                    {
+                        result = arg;
+                        results.Add(arg);
+                        return condition(arg);
+                    },
+                    string.Empty,
+                    timeout.Value,
+                    TimeSpan.Zero,
+                    retryPause.Value,
+                    false,
+                    null);
+                
+                return result;
             }
-            while (stopwatch.Elapsed < timeout);
-
-            throw new TimeoutException(string.Format("Condition did not turn true within the maximum waiting time period of {0}s; polling results: {1}", timeout.Value.TotalSeconds, string.Join(", ", result.Select(e => e == null ? "null" : e.ToString()))));
+            catch (Exceptions.WaitForTimeoutException)
+            {
+                throw new TimeoutException(string.Format("Condition did not turn true within the maximum waiting time period of {0}s; polling results: {1}", timeout.Value.TotalSeconds, string.Join(", ", results.Select(e => e == null ? "null" : e.ToString()))));
+            }
         }
     }
 }

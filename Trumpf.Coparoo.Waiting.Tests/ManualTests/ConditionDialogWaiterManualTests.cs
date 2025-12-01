@@ -17,8 +17,8 @@ namespace Trumpf.Coparoo.Desktop.Tests.ConditionDialogFor
     using System;
     using System.Linq;
     using NUnit.Framework;
-    using Trumpf.Coparoo.Waiting;
-    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
+    using Trumpf.Coparoo.Waiting.WinForms;
+    using Trumpf.Coparoo.Waiting.WinForms.Extensions;
 
     /// <summary>
     /// Dialog wait for tests

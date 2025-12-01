@@ -22,7 +22,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using Trumpf.Coparoo.Waiting.Extensions;
     using Trumpf.Coparoo.Waiting.Interfaces;
     using Trumpf.Coparoo.Waiting.Tests.Base;
-    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
+    using Trumpf.Coparoo.Waiting.WinForms.Extensions;
 
     /// <summary>
     /// Silent wait tests using SilentWaiter

@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<!-- project information -->
-		<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+		<TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
 		<DocumentationFile>bin\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
+		<UseWindowsForms>true</UseWindowsForms>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<DebugType>embedded</DebugType>
@@ -14,15 +15,15 @@
 		<MinVerVerbosity>normal</MinVerVerbosity>
 
 		<!-- nupkg information -->
-		<Title>Trumpf.Coparoo.Waiting – Core Waiting Methods for Automated Tests</Title>
+		<Title>Trumpf.Coparoo.Waiting.WinForms � Visual Waiting Dialogs with Windows Forms</Title>
 		<Authors>Alexander Kaiser</Authors>
 		<Company>TRUMPF Werkzeugmaschinen GmbH + Co. KG</Company>
-		<Product>Trumpf Coparoo Waiting</Product>
-		<Description>Trumpf.Coparoo.Waiting is a .NET library for C# that provides intuitive waiting methods for automated tests. This core library includes Wait, TryWait, and SilentWaiter for polling conditions with configurable timeouts. Cross-platform compatible. For Windows Forms-based visual dialogs, use the Trumpf.Coparoo.Waiting.WinForms package.</Description>
+		<Product>Trumpf Coparoo Waiting WinForms</Product>
+		<Description>Trumpf.Coparoo.Waiting.WinForms provides Windows Forms-based visual waiting dialogs for automated tests. This package extends Trumpf.Coparoo.Waiting with interactive UI overlays that show the current state of test conditions in real-time. The dialogs turn red for false conditions, green when conditions are true, and grey to indicate when manual intervention is required. Windows-only package.</Description>
 		<Copyright>TRUMPF Werkzeugmaschinen GmbH + Co. KG</Copyright>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageTags>testleft, automation, PageObject, test, ui, waiting, polling, cross-platform</PackageTags>
+		<PackageTags>testleft, automation, PageObject, test, ui, winforms, windows, visual, dialog</PackageTags>
 		<NeutralLanguage>en</NeutralLanguage>
 		<PackageProjectUrl>https://github.com/trumpf-code/trumpf.coparoo.desktop</PackageProjectUrl>
 		<PackageIcon>logo.png</PackageIcon>
@@ -56,7 +57,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Extensions\ManualInteraction\" />
+		<ProjectReference Include="..\Trumpf.Coparoo.Waiting\Trumpf.Coparoo.Waiting.csproj" />
 	</ItemGroup>
 
 	<!-- log whether key exists -->

@@ -15,6 +15,7 @@
 namespace Trumpf.Coparoo.Waiting.Interfaces
 {
     using System;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// Interface for waiting functionality.
@@ -34,5 +35,19 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
         void GenericWaitFor<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText);
+
+        /// <summary>
+        /// Waits until an async function evaluates to <c>true</c>.
+        /// Shows a dialog.
+        /// </summary>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The async condition to evaluate on the functions return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation.</param>
+        /// <param name="negativeTimeout">The negative timeout.</param>
+        /// <param name="positiveTimeout">The positive timeout.</param>
+        /// <param name="pollingPeriod">The polling time.</param>
+        /// <param name="clickThrough">Whether to enable click-through mode.</param>
+        /// <param name="actionText">The action text.</param>
+        Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText);
     }
 }
