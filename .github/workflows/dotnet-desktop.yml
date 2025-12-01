@@ -67,6 +67,28 @@ jobs:
       run: |
         dotnet pack ${{ env.Solution_Name }} --configuration Release --output ${{ env.Package_Output_Dir }}
 
+    # Sign NuGet package (optional - only if certificate is available)
+    - name: Sign NuGet Package
+      if: matrix.configuration == 'Release' && success() && vars.ENABLE_NUGET_SIGNING == 'true'
+      run: |
+        # Decode the certificate from base64 secret
+        $certBytes = [System.Convert]::FromBase64String("${{ secrets.CODESIGN_CERT_B64 }}")
+        $certPath = "${{ github.workspace }}\cert.pfx"
+        [System.IO.File]::WriteAllBytes($certPath, $certBytes)
+        
+        # Sign all .nupkg files
+        Get-ChildItem "${{ env.Package_Output_Dir }}\*.nupkg" | ForEach-Object {
+          Write-Host "Signing package: $($_.Name)"
+          dotnet nuget sign $_.FullName `
+            --certificate-path $certPath `
+            --certificate-password "${{ secrets.CODESIGN_CERT_PASSWORD }}" `
+            --timestamper http://timestamp.digicert.com `
+            --overwrite
+        }
+        
+        # Clean up certificate file
+        Remove-Item $certPath
+
     # Upload the NuGet package as an artifact
     - name: Upload NuGet Package
       if: matrix.configuration == 'Release' && success()
