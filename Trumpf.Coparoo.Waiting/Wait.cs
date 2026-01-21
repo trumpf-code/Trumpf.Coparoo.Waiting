@@ -18,13 +18,33 @@ namespace Trumpf.Coparoo.Waiting
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
+    using Trumpf.Coparoo.Waiting.Interfaces;
 
     /// <summary>
     /// Wait helper throwing on timeout.
     /// </summary>
     public static class Wait
     {
-        private static readonly SilentWaiter silentWaiter = new SilentWaiter();
+        private static IWaiter defaultWaiter;
+
+        /// <summary>
+        /// Gets or sets the default waiter implementation.
+        /// If not set, defaults to <see cref="SilentWaiter"/>.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// // Use visual dialogs for interactive testing
+        /// Wait.DefaultWaiter = new ConditionDialogWaiter();
+        /// 
+        /// // Use silent waiter for CI/CD
+        /// Wait.DefaultWaiter = new SilentWaiter();
+        /// </code>
+        /// </example>
+        public static IWaiter DefaultWaiter
+        {
+            get => defaultWaiter ?? (defaultWaiter = new SilentWaiter());
+            set => defaultWaiter = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
@@ -188,7 +208,7 @@ namespace Trumpf.Coparoo.Waiting
             
             try
             {
-                silentWaiter.GenericWaitFor(
+                DefaultWaiter.GenericWaitFor(
                     function,
                     arg =>
                     {
