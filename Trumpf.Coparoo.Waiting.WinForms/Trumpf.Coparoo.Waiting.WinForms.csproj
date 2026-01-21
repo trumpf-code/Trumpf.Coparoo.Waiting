@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<!-- project information -->
-		<TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+		<TargetFrameworks>net461;net8.0-windows</TargetFrameworks>
 		<DocumentationFile>bin\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
 		<UseWindowsForms>true</UseWindowsForms>
 		<IncludeSymbols>true</IncludeSymbols>
@@ -15,7 +15,7 @@
 		<MinVerVerbosity>normal</MinVerVerbosity>
 
 		<!-- nupkg information -->
-		<Title>Trumpf.Coparoo.Waiting.WinForms – Visual Waiting Dialogs with Windows Forms</Title>
+		<Title>Trumpf.Coparoo.Waiting.WinForms â€“ Visual Waiting Dialogs with Windows Forms</Title>
 		<Authors>Alexander Kaiser</Authors>
 		<Company>TRUMPF Werkzeugmaschinen GmbH + Co. KG</Company>
 		<Product>Trumpf Coparoo Waiting WinForms</Product>

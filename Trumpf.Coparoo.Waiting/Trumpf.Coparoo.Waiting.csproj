@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<!-- project information -->
-		<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+		<TargetFramework>netstandard2.0</TargetFramework>
 		<DocumentationFile>bin\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
