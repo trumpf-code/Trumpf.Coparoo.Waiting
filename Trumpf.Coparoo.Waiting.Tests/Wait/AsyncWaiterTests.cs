@@ -22,6 +22,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using Trumpf.Coparoo.Waiting.Exceptions;
     using Trumpf.Coparoo.Waiting.Interfaces;
     using Trumpf.Coparoo.Waiting.WinForms;
+    using System.Threading;
 
     /// <summary>
     /// Async wait tests for GenericWaitForAsync method
@@ -280,6 +281,24 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
 
             // Should complete without deadlock
             await task.ConfigureAwait(false);
+
+            Thread.Sleep(100); // Give some time to ensure no deadlock occurs
+
+            waiter.GenericWaitForAsync(
+                () => true,
+                async (value) => 
+                { 
+                    // Simulate an async operation that needs to return to context
+                    await Task.Delay(100).ConfigureAwait(false);
+                    await Task.Yield();
+                    return value;
+                },
+                "No deadlock test",
+                @long,
+                GetPositiveTimeout(),
+                @short,
+                false,
+                null).Wait();
         }
 
         /// <summary>
