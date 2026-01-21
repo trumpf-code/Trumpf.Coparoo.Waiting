@@ -3,10 +3,7 @@
 		<!-- project information -->
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<DocumentationFile>bin\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
-		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<DebugType>embedded</DebugType>
-		<Optimize>false</Optimize>
 
 		<!-- MinVer configuration -->
 		<MinVerTagPrefix>v</MinVerTagPrefix>
@@ -53,10 +50,6 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="Extensions\ManualInteraction\" />
 	</ItemGroup>
 
 	<!-- log whether key exists -->
