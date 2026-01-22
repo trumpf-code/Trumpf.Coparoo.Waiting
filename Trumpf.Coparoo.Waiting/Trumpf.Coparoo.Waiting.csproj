@@ -6,7 +6,7 @@
 		<DebugType>embedded</DebugType>
 
 		<!-- MinVer configuration -->
-		<MinVerTagPrefix>v</MinVerTagPrefix>
+		<MinVerTagPrefix></MinVerTagPrefix>
 		<MinVerMinimumMajorMinor>2.1</MinVerMinimumMajorMinor>
 		<MinVerVerbosity>normal</MinVerVerbosity>
 
