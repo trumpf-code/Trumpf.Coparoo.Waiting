@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Trumpf.Coparoo.Waiting\Trumpf.Coparoo.Waiting.csproj" />

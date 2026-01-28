@@ -4,6 +4,7 @@
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<DocumentationFile>bin\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
 		<DebugType>embedded</DebugType>
+		<IsPackable>true</IsPackable>
 
 		<!-- MinVer configuration -->
 		<MinVerTagPrefix></MinVerTagPrefix>
@@ -11,6 +12,7 @@
 		<MinVerVerbosity>normal</MinVerVerbosity>
 
 		<!-- nupkg information -->
+		<PackageId>Trumpf.Coparoo.Waiting</PackageId>
 		<Title>Trumpf.Coparoo.Waiting – Core Waiting Methods for Automated Tests</Title>
 		<Authors>Alexander Kaiser</Authors>
 		<Company>TRUMPF Werkzeugmaschinen GmbH + Co. KG</Company>

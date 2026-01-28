@@ -8,6 +8,7 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<DebugType>embedded</DebugType>
 		<Optimize>false</Optimize>
+		<IsPackable>true</IsPackable>
 
 		<!-- MinVer configuration -->
 		<MinVerTagPrefix></MinVerTagPrefix>
@@ -15,6 +16,7 @@
 		<MinVerVerbosity>normal</MinVerVerbosity>
 
 		<!-- nupkg information -->
+		<PackageId>Trumpf.Coparoo.Waiting.WinForms</PackageId>
 		<Title>Trumpf.Coparoo.Waiting.WinForms – Visual Waiting Dialogs with Windows Forms</Title>
 		<Authors>Alexander Kaiser</Authors>
 		<Company>TRUMPF Werkzeugmaschinen GmbH + Co. KG</Company>
