@@ -25,12 +25,15 @@ namespace Trumpf.Coparoo.Waiting
     /// </summary>
     public static class Wait
     {
-        private static IWaiter defaultWaiter;
-
         /// <summary>
         /// Gets or sets the default waiter implementation.
         /// If not set, defaults to <see cref="SilentWaiter"/>.
         /// </summary>
+        /// <remarks>
+        /// This property is shared with <see cref="TryWait.DefaultWaiter"/> through <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// Setting this property affects both <see cref="Wait"/> and <see cref="TryWait"/> classes.
+        /// For centralized configuration, prefer using <see cref="WaiterConfiguration.DefaultWaiter"/> directly.
+        /// </remarks>
         /// <example>
         /// <code>
         /// // Use visual dialogs for interactive testing
@@ -38,12 +41,15 @@ namespace Trumpf.Coparoo.Waiting
         /// 
         /// // Use silent waiter for CI/CD
         /// Wait.DefaultWaiter = new SilentWaiter();
+        /// 
+        /// // Or configure centrally (affects both Wait and TryWait)
+        /// WaiterConfiguration.DefaultWaiter = new ConditionDialogWaiter();
         /// </code>
         /// </example>
         public static IWaiter DefaultWaiter
         {
-            get => defaultWaiter ?? (defaultWaiter = new SilentWaiter());
-            set => defaultWaiter = value ?? throw new ArgumentNullException(nameof(value));
+            get => WaiterConfiguration.DefaultWaiter;
+            set => WaiterConfiguration.DefaultWaiter = value;
         }
 
         /// <summary>
@@ -96,6 +102,113 @@ namespace Trumpf.Coparoo.Waiting
         public static void For<T>(Func<T> function, Predicate<T> condition, TimeSpan timeout, TimeSpan retryPause)
         {
             RetryUntilSuccessOrTimeout(function, condition, timeout, retryPause);
+        }
+
+        /// <summary>
+        /// Waits until a function evaluates to <c>true</c> with full control over all parameters.
+        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// </summary>
+        /// <typeparam name="T">The return type of the function.</typeparam>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The condition to evaluate on the function's return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual dialogs.</param>
+        /// <param name="negativeTimeout">The maximum time to wait for the condition to become true.</param>
+        /// <param name="positiveTimeout">The time to wait after the condition becomes true before continuing.</param>
+        /// <param name="pollingPeriod">The time between condition checks.</param>
+        /// <param name="clickThrough">Whether to enable click-through mode for dialogs.</param>
+        /// <param name="actionText">Optional action text for manual interaction scenarios.</param>
+        /// <example>
+        /// <code>
+        /// // Wait with custom expectation text for visual feedback
+        /// Wait.GenericWaitFor(
+        ///     () => element.IsVisible,
+        ///     isVisible => isVisible,
+        ///     "Waiting for element to become visible",
+        ///     TimeSpan.FromSeconds(30),
+        ///     TimeSpan.Zero,
+        ///     TimeSpan.FromMilliseconds(100),
+        ///     false,
+        ///     null);
+        /// 
+        /// // Wait with action text for semi-automated testing
+        /// Wait.GenericWaitFor(
+        ///     () => loginSuccessful,
+        ///     success => success,
+        ///     "Login should succeed",
+        ///     TimeSpan.FromMinutes(2),
+        ///     TimeSpan.FromSeconds(2),
+        ///     TimeSpan.FromMilliseconds(500),
+        ///     false,
+        ///     "Please enter credentials and click Login");
+        /// </code>
+        /// </example>
+        public static void GenericWaitFor<T>(
+            Func<T> function,
+            Predicate<T> condition,
+            string expectationText,
+            TimeSpan negativeTimeout,
+            TimeSpan positiveTimeout,
+            TimeSpan pollingPeriod,
+            bool clickThrough,
+            string actionText)
+        {
+            DefaultWaiter.GenericWaitFor(
+                function,
+                condition,
+                expectationText,
+                negativeTimeout,
+                positiveTimeout,
+                pollingPeriod,
+                clickThrough,
+                actionText);
+        }
+
+        /// <summary>
+        /// Waits asynchronously until a function evaluates to <c>true</c> with full control over all parameters.
+        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// </summary>
+        /// <typeparam name="T">The return type of the function.</typeparam>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The async condition to evaluate on the function's return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual dialogs.</param>
+        /// <param name="negativeTimeout">The maximum time to wait for the condition to become true.</param>
+        /// <param name="positiveTimeout">The time to wait after the condition becomes true before continuing.</param>
+        /// <param name="pollingPeriod">The time between condition checks.</param>
+        /// <param name="clickThrough">Whether to enable click-through mode for dialogs.</param>
+        /// <param name="actionText">Optional action text for manual interaction scenarios.</param>
+        /// <example>
+        /// <code>
+        /// // Async wait with custom parameters
+        /// await Wait.GenericWaitForAsync(
+        ///     () => GetStatus(),
+        ///     async status => await ValidateStatusAsync(status),
+        ///     "Waiting for valid status",
+        ///     TimeSpan.FromSeconds(60),
+        ///     TimeSpan.Zero,
+        ///     TimeSpan.FromMilliseconds(200),
+        ///     false,
+        ///     null);
+        /// </code>
+        /// </example>
+        public static System.Threading.Tasks.Task GenericWaitForAsync<T>(
+            Func<T> function,
+            Func<T, System.Threading.Tasks.Task<bool>> condition,
+            string expectationText,
+            TimeSpan negativeTimeout,
+            TimeSpan positiveTimeout,
+            TimeSpan pollingPeriod,
+            bool clickThrough,
+            string actionText)
+        {
+            return DefaultWaiter.GenericWaitForAsync(
+                function,
+                condition,
+                expectationText,
+                negativeTimeout,
+                positiveTimeout,
+                pollingPeriod,
+                clickThrough,
+                actionText);
         }
 
         /// <summary>

@@ -20,6 +20,21 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
     /// <summary>
     /// Interface for waiting functionality.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Do not call methods on this interface directly unless implementing custom waiter behavior.</b>
+    /// <para>
+    /// For normal usage, prefer:
+    /// <list type="bullet">
+    /// <item><description><see cref="Wait.For"/> or <see cref="TryWait.For"/> - for simple waiting scenarios</description></item>
+    /// <item><description><see cref="Waiter.GenericWaitFor"/> or <see cref="Waiter.GenericWaitForAsync"/> - for advanced parameters</description></item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// These static methods use the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>,
+    /// allowing you to switch between <see cref="SilentWaiter"/> and visual waiters (like ConditionDialogWaiter)
+    /// without changing your code.
+    /// </para>
+    /// </remarks>
     public interface IWaiter
     {
         /// <summary>
