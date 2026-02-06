@@ -355,7 +355,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         }
 
         /// <summary>
-        /// Test that SilentWaiter throws exception when positive timeout requires interaction
+        /// Test that SilentWaiter throws exception when positive timeout is MaxValue
         /// </summary>
         [Test]
         public async Task IfPositiveTimeoutRequiresInteraction_ThenInvalidOperationException()
@@ -367,7 +367,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
                     async (value) => { await Task.Delay(10); return value; },
                     "Async condition with positive timeout",
                     @long,
-                    medium,
+                    TimeSpan.MaxValue,
                     @short,
                     false,
                     null);
@@ -376,7 +376,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
             }
             catch (InvalidOperationException ex)
             {
-                ex.Message.Should().Contain("SilentWaiter does not support positive timeout as it requires human interaction.");
+                ex.Message.Should().Contain("SilentWaiter does not support infinite positive timeout (TimeSpan.MaxValue) as it would wait forever without user interaction.");
             }
         }
     }

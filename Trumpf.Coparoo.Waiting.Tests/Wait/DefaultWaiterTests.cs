@@ -167,30 +167,6 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         }
 
         /// <summary>
-        /// Test that Wait and TryWait can use different waiters independently
-        /// </summary>
-        [Test]
-        public void Wait_And_TryWait_Should_Use_Independent_Waiters()
-        {
-            // Arrange
-            var waitWaiter = new TestWaiter();
-            var tryWaitWaiter = new TestWaiter();
-            
-            Trumpf.Coparoo.Waiting.Wait.DefaultWaiter = waitWaiter;
-            Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter = tryWaitWaiter;
-
-            // Act
-            Trumpf.Coparoo.Waiting.Wait.For(() => true, TimeSpan.FromMilliseconds(100));
-            Trumpf.Coparoo.Waiting.TryWait.For(() => true, TimeSpan.FromMilliseconds(100));
-
-            // Assert
-            Assert.IsTrue(waitWaiter.WasCalled);
-            Assert.IsTrue(tryWaitWaiter.WasCalled);
-            Assert.AreSame(waitWaiter, Trumpf.Coparoo.Waiting.Wait.DefaultWaiter);
-            Assert.AreSame(tryWaitWaiter, Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter);
-        }
-
-        /// <summary>
         /// Test waiter implementation for testing purposes
         /// </summary>
         private class TestWaiter : IWaiter

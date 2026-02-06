@@ -54,12 +54,10 @@ namespace Trumpf.Coparoo.Waiting
                 throw new InvalidOperationException("SilentWaiter does not support action text as it requires human interaction.");
             }
 
-            // Throw exception if positive timeout is set to a value that requires user interaction
-            // TimeSpan.Zero means no positive timeout (immediate continue)
-            // TimeSpan.MaxValue means infinite positive timeout (not requiring interaction)
-            if (positiveTimeout != TimeSpan.Zero && positiveTimeout != TimeSpan.MaxValue)
+            // Throw exception if positive timeout is MaxValue (would wait forever without user interaction)
+            if (positiveTimeout == TimeSpan.MaxValue)
             {
-                throw new InvalidOperationException("SilentWaiter does not support positive timeout as it requires human interaction.");
+                throw new InvalidOperationException("SilentWaiter does not support infinite positive timeout (TimeSpan.MaxValue) as it would wait forever without user interaction.");
             }
 
             // Throw exception if both function and condition are null with infinite timeout (requires manual acknowledgment)
@@ -68,14 +66,17 @@ namespace Trumpf.Coparoo.Waiting
                 throw new InvalidOperationException("SilentWaiter does not support manual acknowledgment mode (null function and condition with infinite timeout).");
             }
 
-            var stopwatch = Stopwatch.StartNew();
+            var negativeStopwatch = Stopwatch.StartNew();
+            Stopwatch positiveStopwatch = null;
             var effectivePollingPeriod = pollingPeriod > TimeSpan.Zero ? pollingPeriod : TimeSpan.FromMilliseconds(100);
             var effectiveNegativeTimeout = negativeTimeout < TimeSpan.Zero ? TimeSpan.Zero : negativeTimeout;
+            var effectivePositiveTimeout = positiveTimeout < TimeSpan.Zero ? TimeSpan.Zero : positiveTimeout;
 
-            bool isInfiniteTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
+            bool isInfiniteNegativeTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
+            bool wasInGoodState = false;
 
             // Main waiting loop
-            while (isInfiniteTimeout || stopwatch.Elapsed < effectiveNegativeTimeout)
+            while (isInfiniteNegativeTimeout || negativeStopwatch.Elapsed < effectiveNegativeTimeout)
             {
                 try
                 {
@@ -92,18 +93,43 @@ namespace Trumpf.Coparoo.Waiting
 
                     if (conditionMet)
                     {
-                        // Condition is true, success
-                        return;
-                    }
+                        // Condition is true
+                        if (!wasInGoodState)
+                        {
+                            // Transition from bad to good state - start positive timeout
+                            positiveStopwatch = Stopwatch.StartNew();
+                            wasInGoodState = true;
+                        }
 
-                    // For infinite timeout with false condition after first evaluation, throw
-                    if (isInfiniteTimeout)
+                        // Check if positive timeout is satisfied
+                        if (effectivePositiveTimeout == TimeSpan.Zero ||
+                            positiveStopwatch.Elapsed >= effectivePositiveTimeout)
+                        {
+                            // Positive timeout satisfied, success
+                            return;
+                        }
+
+                        // Continue polling during positive timeout
+                    }
+                    else
                     {
-                        throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
+                        // Condition is false
+                        if (wasInGoodState)
+                        {
+                            // Transition from good to bad state - reset positive timeout
+                            positiveStopwatch = null;
+                            wasInGoodState = false;
+                        }
+
+                        // For infinite timeout with false condition after first evaluation, throw
+                        if (isInfiniteNegativeTimeout)
+                        {
+                            throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
+                        }
                     }
 
-                    // Condition not met yet, sleep and retry if we have time left
-                    if (stopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
+                    // Condition not met yet (or still in positive timeout), sleep and retry if we have time left
+                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
                     {
                         Thread.Sleep(effectivePollingPeriod);
                     }
@@ -116,12 +142,19 @@ namespace Trumpf.Coparoo.Waiting
                 catch (Exception)
                 {
                     // If function throws, treat as condition not met
-                    if (isInfiniteTimeout)
+                    if (wasInGoodState)
+                    {
+                        // Transition from good to bad state - reset positive timeout
+                        positiveStopwatch = null;
+                        wasInGoodState = false;
+                    }
+
+                    if (isInfiniteNegativeTimeout)
                     {
                         throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
                     }
 
-                    if (stopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
+                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
                     {
                         Thread.Sleep(effectivePollingPeriod);
                     }
@@ -152,12 +185,10 @@ namespace Trumpf.Coparoo.Waiting
                 throw new InvalidOperationException("SilentWaiter does not support action text as it requires human interaction.");
             }
 
-            // Throw exception if positive timeout is set to a value that requires user interaction
-            // TimeSpan.Zero means no positive timeout (immediate continue)
-            // TimeSpan.MaxValue means infinite positive timeout (not requiring interaction)
-            if (positiveTimeout != TimeSpan.Zero && positiveTimeout != TimeSpan.MaxValue)
+            // Throw exception if positive timeout is MaxValue (would wait forever without user interaction)
+            if (positiveTimeout == TimeSpan.MaxValue)
             {
-                throw new InvalidOperationException("SilentWaiter does not support positive timeout as it requires human interaction.");
+                throw new InvalidOperationException("SilentWaiter does not support infinite positive timeout (TimeSpan.MaxValue) as it would wait forever without user interaction.");
             }
 
             // Throw exception if both function and condition are null with infinite timeout (requires manual acknowledgment)
@@ -166,14 +197,17 @@ namespace Trumpf.Coparoo.Waiting
                 throw new InvalidOperationException("SilentWaiter does not support manual acknowledgment mode (null function and condition with infinite timeout).");
             }
 
-            var stopwatch = Stopwatch.StartNew();
+            var negativeStopwatch = Stopwatch.StartNew();
+            Stopwatch positiveStopwatch = null;
             var effectivePollingPeriod = pollingPeriod > TimeSpan.Zero ? pollingPeriod : TimeSpan.FromMilliseconds(100);
             var effectiveNegativeTimeout = negativeTimeout < TimeSpan.Zero ? TimeSpan.Zero : negativeTimeout;
+            var effectivePositiveTimeout = positiveTimeout < TimeSpan.Zero ? TimeSpan.Zero : positiveTimeout;
 
-            bool isInfiniteTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
+            bool isInfiniteNegativeTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
+            bool wasInGoodState = false;
 
             // Main waiting loop
-            while (isInfiniteTimeout || stopwatch.Elapsed < effectiveNegativeTimeout)
+            while (isInfiniteNegativeTimeout || negativeStopwatch.Elapsed < effectiveNegativeTimeout)
             {
                 try
                 {
@@ -190,18 +224,43 @@ namespace Trumpf.Coparoo.Waiting
 
                     if (conditionMet)
                     {
-                        // Condition is true, success
-                        return;
-                    }
+                        // Condition is true
+                        if (!wasInGoodState)
+                        {
+                            // Transition from bad to good state - start positive timeout
+                            positiveStopwatch = Stopwatch.StartNew();
+                            wasInGoodState = true;
+                        }
 
-                    // For infinite timeout with false condition after first evaluation, throw
-                    if (isInfiniteTimeout)
+                        // Check if positive timeout is satisfied
+                        if (effectivePositiveTimeout == TimeSpan.Zero ||
+                            positiveStopwatch.Elapsed >= effectivePositiveTimeout)
+                        {
+                            // Positive timeout satisfied, success
+                            return;
+                        }
+
+                        // Continue polling during positive timeout
+                    }
+                    else
                     {
-                        throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
+                        // Condition is false
+                        if (wasInGoodState)
+                        {
+                            // Transition from good to bad state - reset positive timeout
+                            positiveStopwatch = null;
+                            wasInGoodState = false;
+                        }
+
+                        // For infinite timeout with false condition after first evaluation, throw
+                        if (isInfiniteNegativeTimeout)
+                        {
+                            throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
+                        }
                     }
 
-                    // Condition not met yet, sleep and retry if we have time left
-                    if (stopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
+                    // Condition not met yet (or still in positive timeout), sleep and retry if we have time left
+                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
                     {
                         await Task.Delay(effectivePollingPeriod).ConfigureAwait(false);
                     }
@@ -214,12 +273,19 @@ namespace Trumpf.Coparoo.Waiting
                 catch (Exception)
                 {
                     // If function throws, treat as condition not met
-                    if (isInfiniteTimeout)
+                    if (wasInGoodState)
+                    {
+                        // Transition from good to bad state - reset positive timeout
+                        positiveStopwatch = null;
+                        wasInGoodState = false;
+                    }
+
+                    if (isInfiniteNegativeTimeout)
                     {
                         throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
                     }
 
-                    if (stopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
+                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
                     {
                         await Task.Delay(effectivePollingPeriod).ConfigureAwait(false);
                     }
