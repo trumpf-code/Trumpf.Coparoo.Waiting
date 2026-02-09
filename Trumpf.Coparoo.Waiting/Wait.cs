@@ -109,6 +109,26 @@ namespace Trumpf.Coparoo.Waiting
         /// </summary>
         /// <param name="function">The function to evaluate.</param>
         /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
+        /// <remarks>
+        /// Uses a default timeout of 20 seconds. For custom timeout, use <see cref="For(Func{bool}, string, TimeSpan)"/>.
+        /// For full control over all parameters, use <see cref="GenericWaitFor{T}"/>.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Wait with expectation text using default timeout
+        /// Wait.For(() => element.IsVisible, "Element should be visible");
+        /// </code>
+        /// </example>
+        public static void For(Func<bool> function, string expectationText)
+        {
+            For(function, expectationText, TimeSpan.FromSeconds(20));
+        }
+
+        /// <summary>
+        /// Waits until a function evaluates to <c>true</c>.
+        /// </summary>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
         /// <param name="timeout">The maximum waiting time.</param>
         /// <remarks>
         /// For full control over all parameters including clickThrough and actionText, use <see cref="GenericWaitFor{T}"/>.
@@ -165,6 +185,31 @@ namespace Trumpf.Coparoo.Waiting
                 pollingPeriod,
                 false,
                 null);
+        }
+
+        /// <summary>
+        /// Waits until a function evaluates to <c>true</c>.
+        /// </summary>
+        /// <typeparam name="T">The return type of the function.</typeparam>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The condition to evaluate on the function's return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
+        /// <remarks>
+        /// Uses a default timeout of 20 seconds. For custom timeout, use <see cref="For{T}(Func{T}, Predicate{T}, string, TimeSpan)"/>.
+        /// For full control over all parameters, use <see cref="GenericWaitFor{T}"/>.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Wait for specific condition with expectation text using default timeout
+        /// Wait.For(
+        ///     () => GetStatus(), 
+        ///     status => status == "Ready", 
+        ///     "Status should be Ready");
+        /// </code>
+        /// </example>
+        public static void For<T>(Func<T> function, Predicate<T> condition, string expectationText)
+        {
+            For(function, condition, expectationText, TimeSpan.FromSeconds(20));
         }
 
         /// <summary>
