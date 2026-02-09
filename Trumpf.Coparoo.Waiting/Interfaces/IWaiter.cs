@@ -25,7 +25,7 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
     /// <para>
     /// For normal usage, prefer:
     /// <list type="bullet">
-    /// <item><description><see cref="Wait.For"/> or <see cref="TryWait.For"/> - for simple waiting scenarios</description></item>
+    /// <item><description><see cref="Wait.For(Func{bool})"/> or <see cref="TryWait.For(Func{bool})"/> - for simple waiting scenarios</description></item>
     /// <item><description><see cref="Waiter.GenericWaitFor"/> or <see cref="Waiter.GenericWaitForAsync"/> - for advanced parameters</description></item>
     /// </list>
     /// </para>

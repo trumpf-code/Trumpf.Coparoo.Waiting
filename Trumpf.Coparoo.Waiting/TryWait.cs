@@ -109,6 +109,161 @@ namespace Trumpf.Coparoo.Waiting
         }
 
         /// <summary>
+        /// Waits until a function evaluates to <c>true</c>.
+        /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).
+        /// </summary>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
+        /// <param name="timeout">The maximum waiting time.</param>
+        /// <returns>True if the condition was met within the timeout, false otherwise.</returns>
+        /// <remarks>
+        /// For full control over all parameters including clickThrough and actionText, use <see cref="GenericWaitFor{T}"/>.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Try wait with expectation text
+        /// if (TryWait.For(() => element.IsVisible, "Element should be visible", TimeSpan.FromSeconds(10)))
+        /// {
+        ///     // Element became visible
+        /// }
+        /// </code>
+        /// </example>
+        public static bool For(Func<bool> function, string expectationText, TimeSpan timeout)
+        {
+            return GenericWaitFor(
+                function != null ? (Func<object>)(() => function() ? (object)true : null) : null,
+                result => result != null && (bool)result,
+                expectationText,
+                timeout,
+                TimeSpan.Zero,
+                TimeSpan.FromMilliseconds(100),
+                false,
+                null);
+        }
+
+        /// <summary>
+        /// Waits until a function evaluates to <c>true</c>.
+        /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).
+        /// </summary>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
+        /// <param name="negativeTimeout">The maximum time to wait for the condition to become true.</param>
+        /// <param name="positiveTimeout">The time to wait after the condition becomes true before continuing.</param>
+        /// <param name="pollingPeriod">The time between condition checks.</param>
+        /// <returns>True if the condition was met within the timeout, false otherwise.</returns>
+        /// <remarks>
+        /// For full control over all parameters including clickThrough and actionText, use <see cref="GenericWaitFor{T}"/>.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Try wait with full timeout control
+        /// if (TryWait.For(
+        ///     () => element.IsVisible, 
+        ///     "Element should be visible", 
+        ///     TimeSpan.FromSeconds(30),
+        ///     TimeSpan.FromSeconds(2),
+        ///     TimeSpan.FromMilliseconds(100)))
+        /// {
+        ///     // Element became visible and was stable
+        /// }
+        /// </code>
+        /// </example>
+        public static bool For(Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
+        {
+            return GenericWaitFor(
+                function != null ? (Func<object>)(() => function() ? (object)true : null) : null,
+                result => result != null && (bool)result,
+                expectationText,
+                negativeTimeout,
+                positiveTimeout,
+                pollingPeriod,
+                false,
+                null);
+        }
+
+        /// <summary>
+        /// Waits until a function evaluates to <c>true</c>.
+        /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).
+        /// </summary>
+        /// <typeparam name="T">The return type of the function.</typeparam>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The condition to evaluate on the function's return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
+        /// <param name="timeout">The maximum waiting time.</param>
+        /// <returns>True if the condition was met within the timeout, false otherwise.</returns>
+        /// <remarks>
+        /// For full control over all parameters including clickThrough and actionText, use <see cref="GenericWaitFor{T}"/>.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Try wait for specific condition
+        /// if (TryWait.For(
+        ///     () => GetStatus(), 
+        ///     status => status == "Ready", 
+        ///     "Status should be Ready", 
+        ///     TimeSpan.FromSeconds(10)))
+        /// {
+        ///     // Status is ready
+        /// }
+        /// </code>
+        /// </example>
+        public static bool For<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan timeout)
+        {
+            return GenericWaitFor(
+                function,
+                condition,
+                expectationText,
+                timeout,
+                TimeSpan.Zero,
+                TimeSpan.FromMilliseconds(100),
+                false,
+                null);
+        }
+
+        /// <summary>
+        /// Waits until a function evaluates to <c>true</c>.
+        /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).
+        /// </summary>
+        /// <typeparam name="T">The return type of the function.</typeparam>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The condition to evaluate on the function's return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation. Shown in visual feedback if the waiter supports it.</param>
+        /// <param name="negativeTimeout">The maximum time to wait for the condition to become true.</param>
+        /// <param name="positiveTimeout">The time to wait after the condition becomes true before continuing.</param>
+        /// <param name="pollingPeriod">The time between condition checks.</param>
+        /// <returns>True if the condition was met within the timeout, false otherwise.</returns>
+        /// <remarks>
+        /// For full control over all parameters including clickThrough and actionText, use <see cref="GenericWaitFor{T}"/>.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Try wait with full timeout control
+        /// if (TryWait.For(
+        ///     () => GetStatus(), 
+        ///     status => status == "Ready", 
+        ///     "Status should be Ready", 
+        ///     TimeSpan.FromSeconds(30),
+        ///     TimeSpan.FromSeconds(2),
+        ///     TimeSpan.FromMilliseconds(100)))
+        /// {
+        ///     // Status is ready and stable
+        /// }
+        /// </code>
+        /// </example>
+        public static bool For<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
+        {
+            return GenericWaitFor(
+                function,
+                condition,
+                expectationText,
+                negativeTimeout,
+                positiveTimeout,
+                pollingPeriod,
+                false,
+                null);
+        }
+
+        /// <summary>
         /// Waits until a function evaluates to <c>true</c> with full control over all parameters.
         /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
         /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).

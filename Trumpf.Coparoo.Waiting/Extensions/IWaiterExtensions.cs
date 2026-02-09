@@ -21,7 +21,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
     /// <summary>
     /// Extension methods for IWaiter.
     /// </summary>
-    public static class ConditionDialogExtensions
+    public static class IWaiterExtensions
     {
         private static readonly TimeSpan timerPeriod = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
@@ -29,7 +29,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -41,7 +41,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -54,7 +54,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -67,7 +67,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -81,7 +81,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -96,7 +96,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -112,7 +112,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -127,7 +127,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog.
+        /// Shows visual feedback if the waiter supports it.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
@@ -150,7 +150,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Shows a dialog including the current value.
+        /// Shows visual feedback if the waiter supports it, including the current value.
         /// </summary>
         /// <param name="waiter">The waiter instance.</param>
         /// <param name="function">The function to evaluate.</param>
