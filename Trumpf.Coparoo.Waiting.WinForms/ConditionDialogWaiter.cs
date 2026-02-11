@@ -31,6 +31,9 @@ namespace Trumpf.Coparoo.Waiting.WinForms
     /// </summary>
     public class ConditionDialogWaiter : IWaiter
     {
+        [ThreadStatic]
+        private static bool isInsideWait;
+        
         private readonly object m = new object();
         private State state;
         private TimeSpan gto;
@@ -42,6 +45,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan positiveWaitTime = TimeSpan.FromSeconds(0);
         private static readonly TimeSpan positiveWaitTimeWithAction = TimeSpan.FromSeconds(2);
+        private static readonly SilentWaiter silentWaiter = new SilentWaiter();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ConditionDialogWaiter"/> class.
@@ -340,71 +344,89 @@ namespace Trumpf.Coparoo.Waiting.WinForms
 
         /// <summary>
         /// Orchestrates thread execution for waiting operations.
+        /// Hybrid approach: STA UI thread + Task-based timer/evaluator for nested wait support.
         /// </summary>
-        private void ExecuteWaitWithThreads(string expectationText, string actionText, TimeSpan negativeTimeout, Action<ManualResetEventSlim> evaluatorAction)
+        private void ExecuteWaitWithThreads(string expectationText, string actionText, TimeSpan negativeTimeout, Action<CancellationToken> evaluatorAction)
         {
-            // Pure thread-based approach
-            var cancellationFlag = new ManualResetEventSlim(false);
-            var uiCompleted = new ManualResetEventSlim(false);
-            Exception capturedException = null;
-            
-            var uiThread = new Thread(() =>
+            try
             {
-                try
+                Task.Run(() =>
                 {
-                    uic.RunUI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick);
-                }
-                catch (Exception ex)
-                {
-                    capturedException = ex;
-                }
-                finally
-                {
-                    uiCompleted.Set();
-                }
-            });
-            uiThread.SetApartmentState(ApartmentState.STA);
-            uiThread.IsBackground = true;
-            
-            var timerThread = new Thread(() =>
+                    // UI thread must be STA for WinForms
+                    var uiCompleted = new ManualResetEventSlim(false);
+                    Exception capturedException = null;
+                    
+                    var uiThread = new Thread(() =>
+                    {
+                        try
+                        {
+                            uic.RunUI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick);
+                        }
+                        catch (Exception ex)
+                        {
+                            capturedException = ex;
+                        }
+                        finally
+                        {
+                            uiCompleted.Set();
+                        }
+                    });
+                    uiThread.SetApartmentState(ApartmentState.STA);
+                    uiThread.IsBackground = true;
+                    
+                    // Use CancellationTokenSource for timer and evaluator coordination
+                    var cancellationTokenSource = new CancellationTokenSource();
+                    var cancellationToken = cancellationTokenSource.Token;
+                    
+                    // Timer and evaluator as Tasks to support nested waits via TPL work-stealing
+                    Task timerTask = Task.Factory.StartNew(
+                        () => Timer(cancellationToken),
+                        cancellationToken,
+                        TaskCreationOptions.LongRunning,
+                        TaskScheduler.Default);
+                    
+                    Task evaluatorTask = Task.Factory.StartNew(
+                        () => evaluatorAction(cancellationToken),
+                        cancellationToken,
+                        TaskCreationOptions.LongRunning,
+                        TaskScheduler.Default);
+                    
+                    // Start UI thread
+                    uiThread.Start();
+                    
+                    // Wait for UI to complete
+                    uiCompleted.Wait();
+                    
+                    // Signal cancellation to timer and evaluator
+                    cancellationTokenSource.Cancel();
+                    
+                    // Wait for tasks to complete (no timeout - reliability is priority)
+                    try
+                    {
+                        Task.WaitAll(new[] { timerTask, evaluatorTask }, TimeSpan.FromSeconds(5));
+                    }
+                    catch (AggregateException)
+                    {
+                        // Expected when tasks are cancelled
+                    }
+                    
+                    // Check for captured exception from UI thread
+                    if (capturedException != null)
+                    {
+                        throw capturedException;
+                    }
+                }).Wait();
+            }
+            catch (AggregateException e)
             {
-                try
+                if (e.InnerException != null)
                 {
-                    Timer(cancellationFlag);
+                    throw e.InnerException;
                 }
-                catch { }
-            });
-            timerThread.IsBackground = true;
-            
-            var evaluatorThread = new Thread(() =>
-            {
-                try
+                else
                 {
-                    evaluatorAction(cancellationFlag);
+                    throw;
                 }
-                catch { }
-            });
-            evaluatorThread.IsBackground = true;
-            
-            // Start all threads
-            uiThread.Start();
-            timerThread.Start();
-            evaluatorThread.Start();
-            
-            // Wait for UI to complete
-            uiCompleted.Wait();
-            
-            // Signal cancellation
-            cancellationFlag.Set();
-            
-            // Wait for other threads with timeout
-            timerThread.Join(1000);
-            evaluatorThread.Join(1000);
-            
-            // Check for captured exception
-            if (capturedException != null)
-            {
-                throw capturedException;
             }
             
             // Handle result
@@ -438,18 +460,34 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="actionText">The action text.</param>
         public void GenericWaitFor<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
-            // init
-            state = State.init;
-            this.positiveTimeout = positiveTimeout;
-            this.negativeTimeout = negativeTimeout;
-            uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+            // Detect recursive/nested wait calls - delegate to SilentWaiter to prevent dialog conflicts
+            if (isInsideWait)
+            {
+                silentWaiter.GenericWaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
+                return;
+            }
 
-            ExecuteWaitWithThreads(
-                expectationText,
-                actionText,
-                negativeTimeout,
-                cancellationFlag => Evaluator(cancellationFlag, function, condition, pollingPeriod)
-            );
+            try
+            {
+                isInsideWait = true;
+                
+                // init
+                state = State.init;
+                this.positiveTimeout = positiveTimeout;
+                this.negativeTimeout = negativeTimeout;
+                uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+
+                ExecuteWaitWithThreads(
+                    expectationText,
+                    actionText,
+                    negativeTimeout,
+                    cancellationToken => Evaluator(cancellationToken, function, condition, pollingPeriod)
+                );
+            }
+            finally
+            {
+                isInsideWait = false;
+            }
         }
 
         /// <summary>
@@ -466,45 +504,61 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="actionText">The action text.</param>
         public async Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
-            await Task.Run(() =>
+            // Detect recursive/nested wait calls - delegate to SilentWaiter to prevent dialog conflicts
+            if (isInsideWait)
             {
-                // init
-                state = State.init;
-                this.positiveTimeout = positiveTimeout;
-                this.negativeTimeout = negativeTimeout;
-                uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+                await silentWaiter.GenericWaitForAsync(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText).ConfigureAwait(false);
+                return;
+            }
 
-                ExecuteWaitWithThreads(
-                    expectationText,
-                    actionText,
-                    negativeTimeout,
-                    cancellationFlag => EvaluatorAsync(cancellationFlag, function, condition, pollingPeriod).Wait()
-                );
-            }).ConfigureAwait(false);
+            try
+            {
+                isInsideWait = true;
+                
+                await Task.Run(() =>
+                {
+                    // init
+                    state = State.init;
+                    this.positiveTimeout = positiveTimeout;
+                    this.negativeTimeout = negativeTimeout;
+                    uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+
+                    ExecuteWaitWithThreads(
+                        expectationText,
+                        actionText,
+                        negativeTimeout,
+                        cancellationToken => EvaluatorAsync(cancellationToken, function, condition, pollingPeriod).Wait()
+                    );
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                isInsideWait = false;
+            }
         }
 
         /// <summary>
         /// Timer function.
         /// </summary>
-        /// <param name="cancellationFlag">The cancellation flag.</param>
-        private void Timer(ManualResetEventSlim cancellationFlag)
+        /// <param name="cancellationToken">The cancellation token.</param>
+        private void Timer(CancellationToken cancellationToken)
         {
             SpinWait.SpinUntil(() => state != State.init);
 
-            while (!cancellationFlag.IsSet)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 OnTimerElapsed();
 
-                if (cancellationFlag.IsSet)
+                if (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
 
-                Sleep(timerPeriod, cancellationFlag);
+                Sleep(timerPeriod, cancellationToken);
             }
         }
 
-        private static void Sleep(TimeSpan timerPeriod, ManualResetEventSlim cancellationFlag)
+        private static void Sleep(TimeSpan timerPeriod, CancellationToken cancellationToken)
         {
             if (timerPeriod <= TimeSpan.Zero)
             {
@@ -513,22 +567,23 @@ namespace Trumpf.Coparoo.Waiting.WinForms
 
             try
             {
-                // Simple wait with cancellation check - deadlock-free
-                cancellationFlag.Wait(timerPeriod);
+                // Task.Delay integrates with TPL and supports nested Task contexts
+                Task.Delay(timerPeriod, cancellationToken).Wait();
             }
             catch (Exception)
             {
+                // Expected when cancelled
             }
         }
 
         /// <summary>
         /// Evaluator function.
         /// </summary>
-        /// <param name="cancellationFlag">The cancellation flag.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <param name="function">The function to call periodically.</param>
         /// <param name="condition">The condition to evaluate on the functions return value.</param>
         /// <param name="pollingPeriod">The polling time.</param>
-        private void Evaluator<T>(ManualResetEventSlim cancellationFlag, Func<T> function, Predicate<T> condition, TimeSpan pollingPeriod)
+        private void Evaluator<T>(CancellationToken cancellationToken, Func<T> function, Predicate<T> condition, TimeSpan pollingPeriod)
         {
             var stopwatch = new Stopwatch();
 
@@ -537,7 +592,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             T value = default;
             bool lastTruth = default;
             bool truth = default;
-            while (condition != null && !cancellationFlag.IsSet)
+            while (condition != null && !cancellationToken.IsCancellationRequested)
             {
                 stopwatch.Restart();
 
@@ -559,7 +614,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                 }
 
                 var remaining = pollingPeriod - stopwatch.Elapsed;
-                Sleep(remaining, cancellationFlag);
+                Sleep(remaining, cancellationToken);
 
                 first = false;
             }
@@ -568,11 +623,11 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <summary>
         /// Async evaluator function.
         /// </summary>
-        /// <param name="cancellationFlag">The cancellation flag.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <param name="function">The function to call periodically.</param>
         /// <param name="condition">The async condition to evaluate on the functions return value.</param>
         /// <param name="pollingPeriod">The polling time.</param>
-        private async Task EvaluatorAsync<T>(ManualResetEventSlim cancellationFlag, Func<T> function, Func<T, Task<bool>> condition, TimeSpan pollingPeriod)
+        private async Task EvaluatorAsync<T>(CancellationToken cancellationToken, Func<T> function, Func<T, Task<bool>> condition, TimeSpan pollingPeriod)
         {
             var stopwatch = new Stopwatch();
 
@@ -581,7 +636,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             T value = default;
             bool lastTruth = default;
             bool truth = default;
-            while (condition != null && !cancellationFlag.IsSet)
+            while (condition != null && !cancellationToken.IsCancellationRequested)
             {
                 stopwatch.Restart();
 
@@ -603,7 +658,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                 }
 
                 var remaining = pollingPeriod - stopwatch.Elapsed;
-                Sleep(remaining, cancellationFlag);
+                Sleep(remaining, cancellationToken);
 
                 first = false;
             }
