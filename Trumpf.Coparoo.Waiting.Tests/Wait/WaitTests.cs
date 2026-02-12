@@ -283,6 +283,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
 
         /// <summary>
         /// Test that Wait.For handles exceptions from function
+        /// With new behavior: exception is treated as false and retried, then thrown at timeout
         /// </summary>
         [Test]
         public void For_WhenFunctionThrowsException_ThrowsTimeoutException()
@@ -293,8 +294,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
             // Act
             Action act = () => Waiting.Wait.For(throwingFunction, TimeSpan.FromMilliseconds(500));
 
-            // Assert
-            act.Should().Throw<TimeoutException>();
+            // Assert - now expects the actual exception from the function, not TimeoutException
+            act.Should().Throw<InvalidOperationException>()
+                .WithMessage("Test exception");
         }
 
         /// <summary>

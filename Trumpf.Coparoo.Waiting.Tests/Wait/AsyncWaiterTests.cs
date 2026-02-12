@@ -156,6 +156,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
 
         /// <summary>
         /// Test async condition that throws exception
+        /// With new behavior: exception is treated as false and retried, then thrown at timeout
         /// </summary>
         [Test]
         public virtual async Task IfTheAsyncConditionThrowsException_ThenTimeout()
@@ -176,11 +177,12 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
                     false,
                     null);
                 
-                Assert.Fail("Expected WaitForTimeoutException was not thrown");
+                Assert.Fail("Expected InvalidOperationException was not thrown");
             }
-            catch (WaitForTimeoutException)
+            catch (InvalidOperationException ex)
             {
-                // Expected
+                // Expected - the actual exception from the condition is now thrown
+                Assert.That(ex.Message, Is.EqualTo("Test exception"));
             }
         }
 

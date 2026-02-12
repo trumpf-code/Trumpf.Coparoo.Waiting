@@ -27,6 +27,8 @@ namespace Trumpf.Coparoo.Waiting
     /// </summary>
     public class SilentWaiter : IWaiter
     {
+        private Exception lastException; // Store last exception from evaluation
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SilentWaiter"/> class.
         /// </summary>
@@ -74,6 +76,7 @@ namespace Trumpf.Coparoo.Waiting
 
             bool isInfiniteNegativeTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
             bool wasInGoodState = false;
+            lastException = null; // Reset exception tracking
 
             // Main waiting loop
             while (isInfiniteNegativeTimeout || negativeStopwatch.Elapsed < effectiveNegativeTimeout)
@@ -90,6 +93,12 @@ namespace Trumpf.Coparoo.Waiting
 
                     // Evaluate condition
                     bool conditionMet = condition == null ? Convert.ToBoolean(result) : condition(result);
+
+                    // Clear exception on successful evaluation
+                    lastException = null;
+
+                    // Clear exception on successful evaluation
+                    lastException = null;
 
                     if (conditionMet)
                     {
@@ -139,9 +148,11 @@ namespace Trumpf.Coparoo.Waiting
                     // Re-throw timeout exceptions
                     throw;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // If function throws, treat as condition not met
+                    // Store exception and treat as condition not met (retry on next poll)
+                    lastException = ex;
+                    
                     if (wasInGoodState)
                     {
                         // Transition from good to bad state - reset positive timeout
@@ -151,7 +162,8 @@ namespace Trumpf.Coparoo.Waiting
 
                     if (isInfiniteNegativeTimeout)
                     {
-                        throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
+                        // For infinite timeout with exception, throw the exception immediately
+                        throw;
                     }
 
                     if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
@@ -161,7 +173,13 @@ namespace Trumpf.Coparoo.Waiting
                 }
             }
 
-            // Timeout reached
+            // Timeout reached - throw stored exception if available, otherwise timeout exception
+            if (lastException != null)
+            {
+                var ex = lastException;
+                lastException = null;
+                throw ex;
+            }
             throw new WaitForTimeoutException(expectationText, effectiveNegativeTimeout);
         }
 
@@ -205,6 +223,7 @@ namespace Trumpf.Coparoo.Waiting
 
             bool isInfiniteNegativeTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
             bool wasInGoodState = false;
+            lastException = null; // Reset exception tracking
 
             // Main waiting loop
             while (isInfiniteNegativeTimeout || negativeStopwatch.Elapsed < effectiveNegativeTimeout)
@@ -221,6 +240,12 @@ namespace Trumpf.Coparoo.Waiting
 
                     // Evaluate condition
                     bool conditionMet = condition == null ? Convert.ToBoolean(result) : await condition(result).ConfigureAwait(false);
+
+                    // Clear exception on successful evaluation
+                    lastException = null;
+
+                    // Clear exception on successful evaluation
+                    lastException = null;
 
                     if (conditionMet)
                     {
@@ -270,9 +295,11 @@ namespace Trumpf.Coparoo.Waiting
                     // Re-throw timeout exceptions
                     throw;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // If function throws, treat as condition not met
+                    // Store exception and treat as condition not met (retry on next poll)
+                    lastException = ex;
+                    
                     if (wasInGoodState)
                     {
                         // Transition from good to bad state - reset positive timeout
@@ -282,7 +309,8 @@ namespace Trumpf.Coparoo.Waiting
 
                     if (isInfiniteNegativeTimeout)
                     {
-                        throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
+                        // For infinite timeout with exception, throw the exception immediately
+                        throw;
                     }
 
                     if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
@@ -292,7 +320,13 @@ namespace Trumpf.Coparoo.Waiting
                 }
             }
 
-            // Timeout reached
+            // Timeout reached - throw stored exception if available, otherwise timeout exception
+            if (lastException != null)
+            {
+                var ex = lastException;
+                lastException = null;
+                throw ex;
+            }
             throw new WaitForTimeoutException(expectationText, effectiveNegativeTimeout);
         }
     }
