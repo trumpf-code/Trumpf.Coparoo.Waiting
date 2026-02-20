@@ -28,6 +28,8 @@ namespace Trumpf.Coparoo.Waiting.WinForms
 
     /// <summary>
     /// Condition dialog class.
+    /// Shows a visual dialog during waits with color-coded status feedback.
+    /// The polling loop runs on the calling thread; only the dialog UI runs on a background thread.
     /// </summary>
     public class ConditionDialogWaiter : IWaiter
     {
@@ -36,13 +38,9 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         private static readonly SilentWaiter silentWaiter = new SilentWaiter();
 
         private readonly object m = new object();
-        private State state;
-        private TimeSpan gto;
-        private TimeSpan positiveTimeout;
-        private TimeSpan bto;
-        private TimeSpan negativeTimeout;
         private DialogView uic;
-        private Exception lastEvaluatorException; // Store last exception from evaluator
+        private volatile bool dialogReady;
+        private volatile int userAction; // 0=none, 1=positive, -1=negative
         private static readonly TimeSpan timerPeriod = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan positiveWaitTime = TimeSpan.FromSeconds(0);
@@ -66,52 +64,6 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             ExStyle = -20
         }
 
-        /// <summary>
-        /// Dialog states.
-        /// </summary>
-        private enum State
-        {
-            /// <summary>
-            /// initial state.
-            /// </summary>
-            init,
-
-            /// <summary>
-            /// unknown state.
-            /// </summary>
-            unknown,
-
-            /// <summary>
-            /// good state.
-            /// </summary>
-            good,
-
-            /// <summary>
-            /// bad state.
-            /// </summary>
-            bad,
-
-            /// <summary>
-            /// good timeout state.
-            /// </summary>
-            good_timedout,
-
-            /// <summary>
-            /// good user exit state.
-            /// </summary>
-            good_userexit,
-
-            /// <summary>
-            /// bad timeout state.
-            /// </summary>
-            bad_timedout,
-
-            /// <summary>
-            /// bad user exit state.
-            /// </summary>
-            bad_userexit
-        }
-
         [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
         private static extern int GetWindowLong(IntPtr wnd, GWL index);
 
@@ -128,331 +80,263 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         private static extern bool ReleaseCapture();
 
         /// <summary>
-        /// On dialog load.
+        /// Starts the dialog on a background thread and waits until it is loaded.
         /// </summary>
         /// <param name="expectationText">Text describing the expected condition.</param>
         /// <param name="actionText">The action text.</param>
-        private void OnDialogLoad(string expectationText, string actionText)
+        /// <param name="negativeTimeout">The negative timeout.</param>
+        /// <param name="positiveTimeout">The positive timeout.</param>
+        /// <param name="cts">Cancellation token source to cancel the polling loop on user action.</param>
+        /// <returns>The background dialog thread.</returns>
+        private Thread StartDialog(string expectationText, string actionText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, CancellationTokenSource cts)
+        {
+            dialogReady = false;
+            userAction = 0;
+
+            var dialogThread = new Thread(() =>
+            {
+                uic.RunUI(
+                    dialogLoad: () =>
+                    {
+                        lock (m)
+                        {
+                            uic.ExpectationText = expectationText;
+                            if (actionText != null)
+                            {
+                                uic.ActionText = actionText;
+                            }
+
+                            uic.GoodButtonEnabled = null;
+                            uic.AutoActionGoodText = positiveTimeout;
+                            uic.AutoActionBadText = negativeTimeout;
+                            uic.Value = "unknown";
+                            uic.Show();
+                            dialogReady = true;
+                        }
+                    },
+                    badClick: () =>
+                    {
+                        lock (m)
+                        {
+                            userAction = -1;
+                            uic.Close();
+                            cts.Cancel();
+                        }
+                    },
+                    goodClick: () =>
+                    {
+                        lock (m)
+                        {
+                            userAction = 1;
+                            uic.Close();
+                            cts.Cancel();
+                        }
+                    });
+            });
+            dialogThread.IsBackground = true;
+            dialogThread.Start();
+
+            // Wait for dialog to be ready before polling starts
+            SpinWait.SpinUntil(() => dialogReady);
+
+            return dialogThread;
+        }
+
+        /// <summary>
+        /// Closes the dialog and waits for the dialog thread to finish.
+        /// </summary>
+        /// <param name="dialogThread">The dialog thread.</param>
+        private void CloseDialogAndJoin(Thread dialogThread)
         {
             lock (m)
             {
-                switch (state)
+                if (uic != null)
                 {
-                    case State.init:
-                        uic.ExpectationText = expectationText;
-                        if (actionText != null)
+                    uic.Close();
+                }
+            }
+
+            dialogThread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        /// <summary>
+        /// Core wait logic shared by sync and async variants.
+        /// Runs the polling engine on the calling thread with a dialog overlay on a background thread.
+        /// </summary>
+        /// <typeparam name="T">The type returned by the function.</typeparam>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The sync condition to evaluate.</param>
+        /// <param name="asyncCondition">The async condition to evaluate (mutually exclusive with condition).</param>
+        /// <param name="expectationText">Text that explains the function's expectation.</param>
+        /// <param name="negativeTimeout">The negative timeout.</param>
+        /// <param name="positiveTimeout">The positive timeout.</param>
+        /// <param name="pollingPeriod">The polling time.</param>
+        /// <param name="clickThrough">Whether to enable click-through mode.</param>
+        /// <param name="actionText">The action text.</param>
+        private void WaitWithDialog<T>(Func<T> function, Predicate<T> condition, Func<T, Task<bool>> asyncCondition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        {
+            // Detect nested waits and delegate to SilentWaiter to prevent multiple dialogs
+            if (isInsideWait.Value)
+            {
+                if (asyncCondition != null)
+                {
+                    silentWaiter.GenericWaitForAsync(function, asyncCondition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    silentWaiter.GenericWaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
+                }
+
+                return;
+            }
+
+            isInsideWait.Value = true;
+            try
+            {
+                uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+
+                var cts = new CancellationTokenSource();
+                var timeoutHelper = new TimeoutHelper(negativeTimeout, positiveTimeout);
+                var dialogThread = StartDialog(expectationText, actionText, negativeTimeout, positiveTimeout, cts);
+
+                bool success = false;
+                Exception lastException = null;
+                var timerStopwatch = Stopwatch.StartNew();
+
+                // Handle manual interaction mode (null function/condition)
+                if (function == null && condition == null && asyncCondition == null)
+                {
+                    // Pure manual mode: just wait for user action or timeout
+                    while (!cts.IsCancellationRequested)
+                    {
+                        // Update countdown display
+                        UpdateCountdownDisplay(timeoutHelper, false);
+
+                        // Check negative timeout
+                        if (timeoutHelper.IsNegativeTimeoutElapsed)
                         {
-                            uic.ActionText = actionText;
+                            break;
                         }
 
-                        state = State.unknown;
-                        gto = positiveTimeout;
-                        bto = negativeTimeout;
-                        uic.GoodButtonEnabled = null;
-                        uic.AutoActionGoodText = gto;
-                        uic.AutoActionBadText = bto;
-                        uic.Value = "unknown";
-                        uic.Show();
-                        break;
-
-                    default: throw new InvalidOperationException(state.ToString());
+                        PollingEngine.Sleep(timerPeriod, cts.Token);
+                    }
                 }
-            }
-        }
-
-        /// <summary>
-        /// Enter exit bad state.
-        /// </summary>
-        private void EnterExitBad()
-        {
-            uic.Close();
-            state = bto <= TimeSpan.Zero ? State.bad_timedout : State.bad_userexit;
-        }
-
-        /// <summary>
-        /// Enter exit bad state.
-        /// </summary>
-        private void OnBadClick()
-        {
-            lock (m)
-            {
-                switch (state)
+                else
                 {
-                    case State.unknown:
-                    case State.good:
-                    case State.bad:
-                        EnterExitBad();
-                        break;
-
-                    case State.bad_timedout:
-                    case State.bad_userexit:
-                    case State.good_timedout:
-                    case State.good_userexit:
-                        // ignore badClick
-                        break;
-
-                    default: throw new InvalidOperationException(state.ToString());
-                }
-            }
-        }
-
-        /// <summary>
-        /// Enter exit good state.
-        /// </summary>
-        private void EnterExitGood()
-        {
-            uic.Close();
-            state = gto <= TimeSpan.Zero ? State.good_timedout : State.good_userexit;
-        }
-
-        /// <summary>
-        /// Enter exit good state.
-        /// </summary>
-        private void OnGoodClick()
-        {
-            lock (m)
-            {
-                switch (state)
-                {
-                    case State.good:
-                    case State.unknown:
-                        EnterExitGood();
-                        break;
-
-                    case State.bad_timedout:
-                    case State.bad_userexit:
-                    case State.good_timedout:
-                    case State.good_userexit:
-                        // ignore goodClick
-                        break;
-
-                    default: throw new InvalidOperationException(state.ToString());
-                }
-            }
-        }
-
-        /// <summary>
-        /// On value changed.
-        /// </summary>
-        /// <param name="value">The value.</param>
-        private void OnValueChanged(string value)
-        {
-            SpinWait.SpinUntil(() => state != State.init);
-
-            lock (m)
-            {
-                switch (state)
-                {
-                    case State.unknown:
-                    case State.good:
-                    case State.bad:
-                        uic.Value = value;
-                        break;
-
-                    case State.bad_timedout:
-                    case State.bad_userexit:
-                    case State.good_timedout:
-                    case State.good_userexit:
-                        // ignore update
-                        break;
-
-                    default: throw new InvalidOperationException(state.ToString());
-                }
-            }
-        }
-
-        /// <summary>
-        /// On truth changed.
-        /// </summary>
-        /// <param name="truth">The truth value.</param>
-        private void OnTruthChanged(bool truth)
-        {
-            SpinWait.SpinUntil(() => state != State.init);
-
-            lock (m)
-            {
-                var lastState = state;
-
-                switch (state)
-                {
-                    case State.unknown:
-                    case State.good:
-                    case State.bad:
-                        uic.SuspendDrawing();
-                        uic.GoodButtonEnabled = truth;
-                        state = truth ? State.good : State.bad;
-                        gto = lastState == State.bad && state == State.good ? positiveTimeout : gto;
-                        uic.ResumeDrawing();
-                        break;
-
-                    case State.bad_timedout:
-                    case State.bad_userexit:
-                    case State.good_timedout:
-                    case State.good_userexit:
-                        // ignore update
-                        break;
-
-                    default: throw new InvalidOperationException(state.ToString());
-                }
-            }
-        }
-
-        /// <summary>
-        /// On timer elapsed.
-        /// </summary>
-        private void OnTimerElapsed()
-        {
-            lock (m)
-            {
-                switch (state)
-                {
-                    case State.unknown:
-                    case State.bad:
-                        bto -= bto == TimeSpan.MaxValue ? TimeSpan.Zero : timerPeriod;
-                        if (bto <= TimeSpan.Zero)
+                    var callbacks = new PollingCallbacks
+                    {
+                        OnValueChanged = value =>
                         {
-                            EnterExitBad();
-                        }
-                        else
+                            lock (m)
+                            {
+                                if (dialogReady && userAction == 0)
+                                {
+                                    uic.Value = value;
+                                }
+                            }
+                        },
+                        OnTruthChanged = truth =>
                         {
-                            uic.AutoActionBadText = bto;
-                        }
-                        break;
-
-                    case State.good:
-                        gto -= gto == TimeSpan.MaxValue ? TimeSpan.Zero : timerPeriod;
-                        if (gto <= TimeSpan.Zero)
+                            lock (m)
+                            {
+                                if (dialogReady && userAction == 0)
+                                {
+                                    uic.SuspendDrawing();
+                                    uic.GoodButtonEnabled = truth;
+                                    uic.ResumeDrawing();
+                                }
+                            }
+                        },
+                        OnPollComplete = result =>
                         {
-                            EnterExitGood();
-                        }
-                        else
-                        {
-                            uic.AutoActionGoodText = gto;
-                        }
-                        break;
+                            lastException = result.Exception;
 
-                    case State.bad_timedout:
-                    case State.bad_userexit:
-                    case State.good_timedout:
-                    case State.good_userexit:
-                        // ignore update
-                        break;
+                            // Update countdown display periodically
+                            if (timerStopwatch.Elapsed >= timerPeriod)
+                            {
+                                UpdateCountdownDisplay(timeoutHelper, result.Truth);
+                                timerStopwatch.Restart();
+                            }
 
-                    default: throw new InvalidOperationException(state.ToString());
+                            return timeoutHelper.ProcessPollResult(result.Truth, result.Exception != null, expectationText, cts, ref success, ref lastException);
+                        }
+                    };
+
+                    if (asyncCondition != null)
+                    {
+                        PollingEngine.RunWithAsyncCondition(function, asyncCondition, pollingPeriod, cts.Token, callbacks);
+                    }
+                    else
+                    {
+                        PollingEngine.Run(function, condition, pollingPeriod, cts.Token, callbacks);
+                    }
                 }
-            }
-        }
 
-        /// <summary>
-        /// Orchestrates task execution for waiting operations.
-        /// Uses dedicated threads for UI, Timer, and Evaluator to avoid thread pool starvation.
-        /// </summary>
-        private void ExecuteWaitWithThreads(string expectationText, string actionText, TimeSpan negativeTimeout, Action<CancellationToken> evaluatorAction)
-        {
-            // UI must run on explicit STA thread for WinForms
-            using (var uiCompleted = new ManualResetEventSlim(false))
-            using (var timerCompleted = new ManualResetEventSlim(false))
-            using (var evaluatorCompleted = new ManualResetEventSlim(false))
-            {
-                Exception uiException = null;
-                Exception timerException = null;
-                Exception evaluatorException = null;
+                // Close dialog and wait for dialog thread
+                CloseDialogAndJoin(dialogThread);
 
-                var uiThread = new Thread(() =>
+                // Determine result
+                if (success)
                 {
-                    try
-                    {
-                        uic.RunUI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick);
-                    }
-                    catch (Exception ex)
-                    {
-                        uiException = ex;
-                    }
-                    finally
-                    {
-                        uiCompleted.Set();
-                    }
-                });
-                uiThread.IsBackground = true;
-
-                // Timer and Evaluator on dedicated background threads to avoid thread pool starvation
-                var c = new CancellationTokenSource();
-
-                var timerThread = new Thread(() =>
-                {
-                    try
-                    {
-                        Timer(c.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        timerException = ex;
-                    }
-                    finally
-                    {
-                        timerCompleted.Set();
-                    }
-                });
-                timerThread.IsBackground = true;
-
-                var evaluatorThread = new Thread(() =>
-                {
-                    try
-                    {
-                        evaluatorAction(c.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        evaluatorException = ex;
-                    }
-                    finally
-                    {
-                        evaluatorCompleted.Set();
-                    }
-                });
-                evaluatorThread.IsBackground = true;
-
-                // Start all threads
-                uiThread.Start();
-                timerThread.Start();
-                evaluatorThread.Start();
-
-                // Wait for UI to complete (dialog closed)
-                uiCompleted.Wait();
-
-                // Signal cancellation and wait for background threads
-                c.Cancel();
-                timerCompleted.Wait();
-                evaluatorCompleted.Wait();
-
-                // Check for UI exception
-                if (uiException != null)
-                {
-                    throw uiException;
-                }
-            }
-            
-            // Handle result
-            switch (state)
-            {
-                case State.good_userexit:
-                case State.good_timedout:
                     return;
+                }
 
-                case State.bad_timedout:
-                    // If there was a persistent exception during evaluation, throw that instead of timeout
-                    if (lastEvaluatorException != null)
-                    {
-                        var ex = lastEvaluatorException;
-                        lastEvaluatorException = null;
-                        throw ex;
-                    }
-                    throw new WaitForTimeoutException(expectationText, negativeTimeout);
+                if (userAction == 1)
+                {
+                    // User clicked positive
+                    return;
+                }
 
-                case State.bad_userexit:
+                if (userAction == -1)
+                {
+                    // User clicked negative
                     throw new WaitForAbortedException(expectationText);
+                }
 
-                default: throw new InvalidOperationException(state.ToString());
+                // Timeout
+                if (lastException != null)
+                {
+                    throw lastException;
+                }
+
+                throw new WaitForTimeoutException(expectationText, timeoutHelper.EffectiveNegativeTimeout);
+            }
+            finally
+            {
+                isInsideWait.Value = false;
+            }
+        }
+
+        /// <summary>
+        /// Updates the countdown labels on the dialog.
+        /// </summary>
+        /// <param name="timeoutHelper">The timeout helper.</param>
+        /// <param name="isGood">Whether the condition is currently true.</param>
+        private void UpdateCountdownDisplay(TimeoutHelper timeoutHelper, bool isGood)
+        {
+            lock (m)
+            {
+                if (!dialogReady || userAction != 0)
+                {
+                    return;
+                }
+
+                if (!isGood)
+                {
+                    var negRemaining = timeoutHelper.NegativeRemaining;
+                    if (negRemaining != TimeSpan.MaxValue)
+                    {
+                        uic.AutoActionBadText = negRemaining > TimeSpan.Zero ? negRemaining : TimeSpan.Zero;
+                    }
+                }
+                else
+                {
+                    var posRemaining = timeoutHelper.PositiveRemaining;
+                    if (posRemaining != TimeSpan.MaxValue)
+                    {
+                        uic.AutoActionGoodText = posRemaining > TimeSpan.Zero ? posRemaining : TimeSpan.Zero;
+                    }
+                }
             }
         }
 
@@ -470,34 +354,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="actionText">The action text.</param>
         public void GenericWaitFor<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
-            // Detect nested waits and delegate to SilentWaiter to prevent multiple dialogs
-            if (isInsideWait.Value)
-            {
-                silentWaiter.GenericWaitFor(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
-                return;
-            }
-
-            isInsideWait.Value = true;
-            try
-            {
-                // init
-                state = State.init;
-                lastEvaluatorException = null; // Reset exception tracking
-                this.positiveTimeout = positiveTimeout;
-                this.negativeTimeout = negativeTimeout;
-                uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
-
-                ExecuteWaitWithThreads(
-                    expectationText,
-                    actionText,
-                    negativeTimeout,
-                    cancellationToken => Evaluator(cancellationToken, function, condition, pollingPeriod)
-                );
-            }
-            finally
-            {
-                isInsideWait.Value = false;
-            }
+            WaitWithDialog(function, condition, null, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
         }
 
         /// <summary>
@@ -512,180 +369,10 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
-        public async Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        public Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
-            // Detect nested waits and delegate to SilentWaiter to prevent multiple dialogs
-            if (isInsideWait.Value)
-            {
-                await silentWaiter.GenericWaitForAsync(function, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText).ConfigureAwait(false);
-                return;
-            }
-
-            isInsideWait.Value = true;
-            try
-            {
-                // init
-                state = State.init;
-                lastEvaluatorException = null; // Reset exception tracking
-                this.positiveTimeout = positiveTimeout;
-                this.negativeTimeout = negativeTimeout;
-                uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
-
-                ExecuteWaitWithThreads(
-                    expectationText,
-                    actionText,
-                    negativeTimeout,
-                    cancellationToken => EvaluatorAsync(cancellationToken, function, condition, pollingPeriod).GetAwaiter().GetResult()
-                );
-            }
-            finally
-            {
-                isInsideWait.Value = false;
-            }
-        }
-
-        /// <summary>
-        /// Timer function.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        private void Timer(CancellationToken cancellationToken)
-        {
-            SpinWait.SpinUntil(() => state != State.init);
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                OnTimerElapsed();
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                Sleep(timerPeriod, cancellationToken);
-            }
-        }
-
-        private static void Sleep(TimeSpan duration, CancellationToken cancellationToken)
-        {
-            if (duration <= TimeSpan.Zero)
-            {
-                return;
-            }
-
-            // Use WaitHandle for efficient cancellable sleep without thread pool involvement
-            cancellationToken.WaitHandle.WaitOne(duration);
-        }
-
-        /// <summary>
-        /// Evaluator function.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="function">The function to call periodically.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        private void Evaluator<T>(CancellationToken cancellationToken, Func<T> function, Predicate<T> condition, TimeSpan pollingPeriod)
-        {
-            var stopwatch = new Stopwatch();
-
-            bool first = true;
-            T lastValue = default;
-            T value = default;
-            bool lastTruth = default;
-            bool truth = default;
-            while (condition != null && !cancellationToken.IsCancellationRequested)
-            {
-                stopwatch.Restart();
-
-                try
-                {
-                    if (function != null)
-                    {
-                        value = function();
-                        if (first || !object.Equals(value, lastValue))
-                        {
-                            OnValueChanged(value?.ToString() ?? "null");
-                            lastValue = value;
-                        }
-                    }
-
-                    truth = condition(value);
-                    lastEvaluatorException = null; // Clear exception on success
-                }
-                catch (Exception ex)
-                {
-                    // Treat exception as false, store it, and retry on next poll
-                    lastEvaluatorException = ex;
-                    truth = false;
-                    OnValueChanged($"Exception: {ex.Message}");
-                }
-                
-                if (first || !truth.Equals(lastTruth))
-                {
-                    OnTruthChanged(truth);
-                    lastTruth = truth;
-                }
-
-                var remaining = pollingPeriod - stopwatch.Elapsed;
-                Sleep(remaining, cancellationToken);
-
-                first = false;
-            }
-        }
-
-        /// <summary>
-        /// Async evaluator function.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="function">The function to call periodically.</param>
-        /// <param name="condition">The async condition to evaluate on the functions return value.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        private async Task EvaluatorAsync<T>(CancellationToken cancellationToken, Func<T> function, Func<T, Task<bool>> condition, TimeSpan pollingPeriod)
-        {
-            var stopwatch = new Stopwatch();
-
-            bool first = true;
-            T lastValue = default;
-            T value = default;
-            bool lastTruth = default;
-            bool truth = default;
-            while (condition != null && !cancellationToken.IsCancellationRequested)
-            {
-                stopwatch.Restart();
-
-                try
-                {
-                    if (function != null)
-                    {
-                        value = function();
-                        if (first || !object.Equals(value, lastValue))
-                        {
-                            OnValueChanged(value?.ToString() ?? "null");
-                            lastValue = value;
-                        }
-                    }
-
-                    truth = await condition(value).ConfigureAwait(false);
-                    lastEvaluatorException = null; // Clear exception on success
-                }
-                catch (Exception ex)
-                {
-                    // Treat exception as false, store it, and retry on next poll
-                    lastEvaluatorException = ex;
-                    truth = false;
-                    OnValueChanged($"Exception: {ex.Message}");
-                }
-
-                if (first || !truth.Equals(lastTruth))
-                {
-                    OnTruthChanged(truth);
-                    lastTruth = truth;
-                }
-
-                var remaining = pollingPeriod - stopwatch.Elapsed;
-                Sleep(remaining, cancellationToken);
-
-                first = false;
-            }
+            WaitWithDialog(function, null, condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText);
+            return Task.CompletedTask;
         }
 
         /// <summary>

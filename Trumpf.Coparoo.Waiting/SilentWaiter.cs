@@ -27,8 +27,6 @@ namespace Trumpf.Coparoo.Waiting
     /// </summary>
     public class SilentWaiter : IWaiter
     {
-        private Exception lastException; // Store last exception from evaluation
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SilentWaiter"/> class.
         /// </summary>
@@ -50,137 +48,36 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="actionText">The action text.</param>
         public void GenericWaitFor<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
-            // Throw exception if action text is provided (requires human interaction)
-            if (!string.IsNullOrEmpty(actionText))
+            ValidateParameters(actionText, positiveTimeout, negativeTimeout, function, condition);
+
+            var cts = new CancellationTokenSource();
+            var timeoutHelper = new TimeoutHelper(negativeTimeout, positiveTimeout);
+            bool success = false;
+            Exception lastException = null;
+
+            var callbacks = new PollingCallbacks
             {
-                throw new InvalidOperationException("SilentWaiter does not support action text as it requires human interaction.");
-            }
-
-            // Throw exception if positive timeout is MaxValue (would wait forever without user interaction)
-            if (positiveTimeout == TimeSpan.MaxValue)
-            {
-                throw new InvalidOperationException("SilentWaiter does not support infinite positive timeout (TimeSpan.MaxValue) as it would wait forever without user interaction.");
-            }
-
-            // Throw exception if both function and condition are null with infinite timeout (requires manual acknowledgment)
-            if (function == null && condition == null && negativeTimeout == TimeSpan.MaxValue)
-            {
-                throw new InvalidOperationException("SilentWaiter does not support manual acknowledgment mode (null function and condition with infinite timeout).");
-            }
-
-            var negativeStopwatch = Stopwatch.StartNew();
-            Stopwatch positiveStopwatch = null;
-            var effectivePollingPeriod = pollingPeriod > TimeSpan.Zero ? pollingPeriod : TimeSpan.FromMilliseconds(100);
-            var effectiveNegativeTimeout = negativeTimeout < TimeSpan.Zero ? TimeSpan.Zero : negativeTimeout;
-            var effectivePositiveTimeout = positiveTimeout < TimeSpan.Zero ? TimeSpan.Zero : positiveTimeout;
-
-            bool isInfiniteNegativeTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
-            bool wasInGoodState = false;
-            lastException = null; // Reset exception tracking
-
-            // Main waiting loop
-            while (isInfiniteNegativeTimeout || negativeStopwatch.Elapsed < effectiveNegativeTimeout)
-            {
-                try
+                OnPollComplete = result =>
                 {
-                    T result = default(T);
-
-                    // Evaluate function if provided
-                    if (function != null)
-                    {
-                        result = function();
-                    }
-
-                    // Evaluate condition
-                    bool conditionMet = condition == null ? Convert.ToBoolean(result) : condition(result);
-
-                    // Clear exception on successful evaluation
-                    lastException = null;
-
-                    // Clear exception on successful evaluation
-                    lastException = null;
-
-                    if (conditionMet)
-                    {
-                        // Condition is true
-                        if (!wasInGoodState)
-                        {
-                            // Transition from bad to good state - start positive timeout
-                            positiveStopwatch = Stopwatch.StartNew();
-                            wasInGoodState = true;
-                        }
-
-                        // Check if positive timeout is satisfied
-                        if (effectivePositiveTimeout == TimeSpan.Zero ||
-                            positiveStopwatch.Elapsed >= effectivePositiveTimeout)
-                        {
-                            // Positive timeout satisfied, success
-                            return;
-                        }
-
-                        // Continue polling during positive timeout
-                    }
-                    else
-                    {
-                        // Condition is false
-                        if (wasInGoodState)
-                        {
-                            // Transition from good to bad state - reset positive timeout
-                            positiveStopwatch = null;
-                            wasInGoodState = false;
-                        }
-
-                        // For infinite timeout with false condition after first evaluation, throw
-                        if (isInfiniteNegativeTimeout)
-                        {
-                            throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
-                        }
-                    }
-
-                    // Condition not met yet (or still in positive timeout), sleep and retry if we have time left
-                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
-                    {
-                        Thread.Sleep(effectivePollingPeriod);
-                    }
+                    lastException = result.Exception;
+                    return timeoutHelper.ProcessPollResult(result.Truth, result.Exception != null, expectationText, cts, ref success, ref lastException);
                 }
-                catch (WaitForTimeoutException)
-                {
-                    // Re-throw timeout exceptions
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    // Store exception and treat as condition not met (retry on next poll)
-                    lastException = ex;
-                    
-                    if (wasInGoodState)
-                    {
-                        // Transition from good to bad state - reset positive timeout
-                        positiveStopwatch = null;
-                        wasInGoodState = false;
-                    }
+            };
 
-                    if (isInfiniteNegativeTimeout)
-                    {
-                        // For infinite timeout with exception, throw the exception immediately
-                        throw;
-                    }
+            PollingEngine.Run(function, condition, pollingPeriod, cts.Token, callbacks);
 
-                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
-                    {
-                        Thread.Sleep(effectivePollingPeriod);
-                    }
-                }
+            if (success)
+            {
+                return;
             }
 
-            // Timeout reached - throw stored exception if available, otherwise timeout exception
+            // Timeout or cancellation reached
             if (lastException != null)
             {
-                var ex = lastException;
-                lastException = null;
-                throw ex;
+                throw lastException;
             }
-            throw new WaitForTimeoutException(expectationText, effectiveNegativeTimeout);
+
+            throw new WaitForTimeoutException(expectationText, timeoutHelper.EffectiveNegativeTimeout);
         }
 
         /// <summary>
@@ -195,7 +92,44 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
-        public async Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        public Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        {
+            ValidateParameters(actionText, positiveTimeout, negativeTimeout, function, condition);
+
+            var cts = new CancellationTokenSource();
+            var timeoutHelper = new TimeoutHelper(negativeTimeout, positiveTimeout);
+            bool success = false;
+            Exception lastException = null;
+
+            var callbacks = new PollingCallbacks
+            {
+                OnPollComplete = result =>
+                {
+                    lastException = result.Exception;
+                    return timeoutHelper.ProcessPollResult(result.Truth, result.Exception != null, expectationText, cts, ref success, ref lastException);
+                }
+            };
+
+            PollingEngine.RunWithAsyncCondition(function, condition, pollingPeriod, cts.Token, callbacks);
+
+            if (success)
+            {
+                return Task.CompletedTask;
+            }
+
+            // Timeout or cancellation reached
+            if (lastException != null)
+            {
+                throw lastException;
+            }
+
+            throw new WaitForTimeoutException(expectationText, timeoutHelper.EffectiveNegativeTimeout);
+        }
+
+        /// <summary>
+        /// Validates parameters that SilentWaiter cannot support.
+        /// </summary>
+        private static void ValidateParameters<T>(string actionText, TimeSpan positiveTimeout, TimeSpan negativeTimeout, Func<T> function, object condition)
         {
             // Throw exception if action text is provided (requires human interaction)
             if (!string.IsNullOrEmpty(actionText))
@@ -214,120 +148,129 @@ namespace Trumpf.Coparoo.Waiting
             {
                 throw new InvalidOperationException("SilentWaiter does not support manual acknowledgment mode (null function and condition with infinite timeout).");
             }
+        }
+    }
 
-            var negativeStopwatch = Stopwatch.StartNew();
-            Stopwatch positiveStopwatch = null;
-            var effectivePollingPeriod = pollingPeriod > TimeSpan.Zero ? pollingPeriod : TimeSpan.FromMilliseconds(100);
-            var effectiveNegativeTimeout = negativeTimeout < TimeSpan.Zero ? TimeSpan.Zero : negativeTimeout;
-            var effectivePositiveTimeout = positiveTimeout < TimeSpan.Zero ? TimeSpan.Zero : positiveTimeout;
+    /// <summary>
+    /// Manages timeout logic for polling-based waiters.
+    /// Tracks negative (overall) and positive (condition-must-stay-true) timeouts using stopwatch-based timing.
+    /// </summary>
+    internal class TimeoutHelper
+    {
+        private readonly Stopwatch negativeStopwatch = Stopwatch.StartNew();
+        private Stopwatch positiveStopwatch;
+        private bool wasInGoodState;
 
-            bool isInfiniteNegativeTimeout = effectiveNegativeTimeout == TimeSpan.MaxValue;
-            bool wasInGoodState = false;
-            lastException = null; // Reset exception tracking
+        /// <summary>
+        /// Gets the effective negative timeout.
+        /// </summary>
+        public TimeSpan EffectiveNegativeTimeout { get; }
 
-            // Main waiting loop
-            while (isInfiniteNegativeTimeout || negativeStopwatch.Elapsed < effectiveNegativeTimeout)
+        /// <summary>
+        /// Gets the effective positive timeout.
+        /// </summary>
+        public TimeSpan EffectivePositiveTimeout { get; }
+
+        /// <summary>
+        /// Gets whether the negative timeout is infinite.
+        /// </summary>
+        public bool IsInfiniteNegativeTimeout { get; }
+
+        /// <summary>
+        /// Gets whether the negative timeout has elapsed.
+        /// </summary>
+        public bool IsNegativeTimeoutElapsed =>
+            !IsInfiniteNegativeTimeout && negativeStopwatch.Elapsed >= EffectiveNegativeTimeout;
+
+        /// <summary>
+        /// Gets the remaining negative timeout.
+        /// </summary>
+        public TimeSpan NegativeRemaining =>
+            IsInfiniteNegativeTimeout ? TimeSpan.MaxValue : EffectiveNegativeTimeout - negativeStopwatch.Elapsed;
+
+        /// <summary>
+        /// Gets the remaining positive timeout, or MaxValue if not in good state.
+        /// </summary>
+        public TimeSpan PositiveRemaining =>
+            wasInGoodState && positiveStopwatch != null ? EffectivePositiveTimeout - positiveStopwatch.Elapsed : TimeSpan.MaxValue;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TimeoutHelper"/> class.
+        /// </summary>
+        /// <param name="negativeTimeout">The negative timeout.</param>
+        /// <param name="positiveTimeout">The positive timeout.</param>
+        public TimeoutHelper(TimeSpan negativeTimeout, TimeSpan positiveTimeout)
+        {
+            EffectiveNegativeTimeout = negativeTimeout < TimeSpan.Zero ? TimeSpan.Zero : negativeTimeout;
+            EffectivePositiveTimeout = positiveTimeout < TimeSpan.Zero ? TimeSpan.Zero : positiveTimeout;
+            IsInfiniteNegativeTimeout = EffectiveNegativeTimeout == TimeSpan.MaxValue;
+        }
+
+        /// <summary>
+        /// Processes a poll result and determines whether polling should stop.
+        /// Manages positive/negative timeout state transitions.
+        /// </summary>
+        /// <param name="truth">Whether the condition is true.</param>
+        /// <param name="hasException">Whether an exception occurred during evaluation.</param>
+        /// <param name="expectationText">The expectation text for timeout exceptions.</param>
+        /// <param name="cts">The cancellation token source to cancel on decision.</param>
+        /// <param name="success">Set to true if the wait completed successfully.</param>
+        /// <param name="lastException">Updated with exception state.</param>
+        /// <returns>True if polling should stop.</returns>
+        public bool ProcessPollResult(bool truth, bool hasException, string expectationText, CancellationTokenSource cts, ref bool success, ref Exception lastException)
+        {
+            if (hasException)
             {
-                try
+                // Exception treated as false
+                if (wasInGoodState)
                 {
-                    T result = default(T);
-
-                    // Evaluate function if provided
-                    if (function != null)
-                    {
-                        result = function();
-                    }
-
-                    // Evaluate condition
-                    bool conditionMet = condition == null ? Convert.ToBoolean(result) : await condition(result).ConfigureAwait(false);
-
-                    // Clear exception on successful evaluation
-                    lastException = null;
-
-                    // Clear exception on successful evaluation
-                    lastException = null;
-
-                    if (conditionMet)
-                    {
-                        // Condition is true
-                        if (!wasInGoodState)
-                        {
-                            // Transition from bad to good state - start positive timeout
-                            positiveStopwatch = Stopwatch.StartNew();
-                            wasInGoodState = true;
-                        }
-
-                        // Check if positive timeout is satisfied
-                        if (effectivePositiveTimeout == TimeSpan.Zero ||
-                            positiveStopwatch.Elapsed >= effectivePositiveTimeout)
-                        {
-                            // Positive timeout satisfied, success
-                            return;
-                        }
-
-                        // Continue polling during positive timeout
-                    }
-                    else
-                    {
-                        // Condition is false
-                        if (wasInGoodState)
-                        {
-                            // Transition from good to bad state - reset positive timeout
-                            positiveStopwatch = null;
-                            wasInGoodState = false;
-                        }
-
-                        // For infinite timeout with false condition after first evaluation, throw
-                        if (isInfiniteNegativeTimeout)
-                        {
-                            throw new WaitForTimeoutException(expectationText, TimeSpan.Zero);
-                        }
-                    }
-
-                    // Condition not met yet (or still in positive timeout), sleep and retry if we have time left
-                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
-                    {
-                        await Task.Delay(effectivePollingPeriod).ConfigureAwait(false);
-                    }
-                }
-                catch (WaitForTimeoutException)
-                {
-                    // Re-throw timeout exceptions
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    // Store exception and treat as condition not met (retry on next poll)
-                    lastException = ex;
-                    
-                    if (wasInGoodState)
-                    {
-                        // Transition from good to bad state - reset positive timeout
-                        positiveStopwatch = null;
-                        wasInGoodState = false;
-                    }
-
-                    if (isInfiniteNegativeTimeout)
-                    {
-                        // For infinite timeout with exception, throw the exception immediately
-                        throw;
-                    }
-
-                    if (negativeStopwatch.Elapsed + effectivePollingPeriod < effectiveNegativeTimeout)
-                    {
-                        await Task.Delay(effectivePollingPeriod).ConfigureAwait(false);
-                    }
+                    positiveStopwatch = null;
+                    wasInGoodState = false;
                 }
             }
-
-            // Timeout reached - throw stored exception if available, otherwise timeout exception
-            if (lastException != null)
+            else if (truth)
             {
-                var ex = lastException;
+                // Clear exception on success
                 lastException = null;
-                throw ex;
+
+                if (!wasInGoodState)
+                {
+                    // Transition from bad to good state - start positive timeout
+                    positiveStopwatch = Stopwatch.StartNew();
+                    wasInGoodState = true;
+                }
+
+                // Check if positive timeout is satisfied
+                if (EffectivePositiveTimeout == TimeSpan.Zero ||
+                    positiveStopwatch.Elapsed >= EffectivePositiveTimeout)
+                {
+                    success = true;
+                    cts.Cancel();
+                    return true;
+                }
             }
-            throw new WaitForTimeoutException(expectationText, effectiveNegativeTimeout);
+            else
+            {
+                // Condition is false, no exception
+                lastException = null;
+
+                if (wasInGoodState)
+                {
+                    // Transition from good to bad state - reset positive timeout
+                    positiveStopwatch = null;
+                    wasInGoodState = false;
+                }
+            }
+
+            // Check negative timeout (only when not in positive phase;
+            // once the condition is true we only care about the positive countdown)
+            if (!wasInGoodState && IsNegativeTimeoutElapsed)
+            {
+                cts.Cancel();
+                return true;
+            }
+
+            return false;
         }
     }
 }
