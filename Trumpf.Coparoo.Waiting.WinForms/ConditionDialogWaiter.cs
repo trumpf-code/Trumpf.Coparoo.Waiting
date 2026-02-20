@@ -373,7 +373,6 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                         uiCompleted.Set();
                     }
                 });
-                uiThread.SetApartmentState(ApartmentState.STA);
                 uiThread.IsBackground = true;
 
                 // Timer and Evaluator on dedicated background threads to avoid thread pool starvation
