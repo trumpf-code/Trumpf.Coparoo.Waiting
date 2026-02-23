@@ -354,45 +354,10 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         {
             try
             {
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
-                    // init
-                    state = State.init;
-                    this.positiveTimeout = positiveTimeout;
-                    this.negativeTimeout = negativeTimeout;
-                    uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
-
-                    // spawn
-                    var c = new CancellationTokenSource();
-                    Task ui = new Task(() => uic.UI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick), c.Token);
-                    Task ti = new Task(() => Timer(c.Token));
-                    Task po = new Task(() => Evaluator(c.Token, function, condition, pollingPeriod));
-
-                    // join
-                    ui.Start();
-                    ti.Start();
-                    po.Start();
-                    ui.Wait();
-
-                    c.Cancel();
-                    ti.Wait();
-                    po.Wait();
-
-                    switch (state)
-                    {
-                        case State.good_userexit:
-                        case State.good_timedout:
-                            return;
-
-                        case State.bad_timedout:
-                            throw new WaitForTimeoutException(expectationText, negativeTimeout);
-
-                        case State.bad_userexit:
-                            throw new WaitForAbortedException(expectationText);
-
-                        default: throw new InvalidOperationException(state.ToString());
-                    }
-                }).Wait();
+                    await GenericWaitForAsync(() => Task.Run(() => { return function(); }), condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText).ConfigureAwait(false);
+                }).GetAwaiter().GetResult();
             }
             catch (AggregateException e)
             {
@@ -404,27 +369,6 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                 {
                     throw;
                 }
-            }
-        }
-
-        /// <summary>
-        /// Timer function.
-        /// </summary>
-        /// <param name="c">The cancellation token.</param>
-        private void Timer(CancellationToken c)
-        {
-            SpinWait.SpinUntil(() => state != State.init);
-
-            while (!c.IsCancellationRequested)
-            {
-                OnTimerElapsed();
-
-                if (c.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                Sleep(timerPeriod, c);
             }
         }
 
@@ -449,22 +393,6 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             }
         }
 
-        private static void Sleep(TimeSpan timerPeriod, CancellationToken c)
-        {
-            if (timerPeriod <= TimeSpan.Zero)
-            {
-                return;
-            }
-
-            try
-            {
-                Task.Run(() => Task.Delay(timerPeriod, c)).Wait();
-            }
-            catch (Exception)
-            {
-            }
-        }
-
         private static async Task SleepAsync(TimeSpan timerPeriod, CancellationToken c)
         {
             if (timerPeriod <= TimeSpan.Zero)
@@ -478,50 +406,6 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             }
             catch (Exception)
             {
-            }
-        }
-
-        /// <summary>
-        /// Evaluator function.
-        /// </summary>
-        /// <param name="c">The cancellation token.</param>
-        /// <param name="function">The function to call periodically.</param>
-        /// <param name="condition">The condition to evaluate on the functions return value.</param>
-        /// <param name="pollingPeriod">The polling time.</param>
-        private void Evaluator<T>(CancellationToken c, Func<T> function, Predicate<T> condition, TimeSpan pollingPeriod)
-        {
-            var stopwatch = new Stopwatch();
-
-            bool first = true;
-            T lastValue = default;
-            T value = default;
-            bool lastTruth = default;
-            bool truth = default;
-            while (condition != null && !c.IsCancellationRequested)
-            {
-                stopwatch.Restart();
-
-                if (function != null)
-                {
-                    value = function();
-                    if (first || !value.Equals(lastValue))
-                    {
-                        OnValueChanged(value.ToString());
-                        lastValue = value;
-                    }
-                }
-
-                truth = condition(value);
-                if (first || !truth.Equals(lastTruth))
-                {
-                    OnTruthChanged(truth);
-                    lastTruth = truth;
-                }
-
-                var remaining = pollingPeriod - stopwatch.Elapsed;
-                Sleep(remaining, c);
-
-                first = false;
             }
         }
 
