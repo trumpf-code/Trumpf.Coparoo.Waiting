@@ -63,6 +63,6 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
-        Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText);
+        Task GenericWaitForAsync<T>(Func<Task<T>> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText);
     }
 }

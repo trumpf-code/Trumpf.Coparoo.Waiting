@@ -115,8 +115,8 @@ namespace Trumpf.Coparoo.Waiting
         /// </code>
         /// </example>
         public static Task GenericWaitForAsync<T>(
-            Func<T> function,
-            Func<T, Task<bool>> condition,
+            Func<Task<T>> function,
+            Predicate<T> condition,
             string expectationText,
             TimeSpan negativeTimeout,
             TimeSpan positiveTimeout,

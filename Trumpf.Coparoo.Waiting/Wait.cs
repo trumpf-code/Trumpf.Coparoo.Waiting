@@ -18,6 +18,7 @@ namespace Trumpf.Coparoo.Waiting
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
+    using System.Threading.Tasks;
     using Trumpf.Coparoo.Waiting.Interfaces;
 
     /// <summary>
@@ -371,8 +372,8 @@ namespace Trumpf.Coparoo.Waiting
         /// </code>
         /// </example>
         public static System.Threading.Tasks.Task GenericWaitForAsync<T>(
-            Func<T> function,
-            Func<T, System.Threading.Tasks.Task<bool>> condition,
+            Func<Task<T>> function,
+            Predicate<T> condition,
             string expectationText,
             TimeSpan negativeTimeout,
             TimeSpan positiveTimeout,

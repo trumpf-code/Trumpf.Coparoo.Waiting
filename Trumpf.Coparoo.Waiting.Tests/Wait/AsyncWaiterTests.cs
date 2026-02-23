@@ -56,9 +56,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public virtual async Task IfTheAsyncConditionIsTrue_ThenNoExceptionIsThrown()
         {
-            await waiter.GenericWaitForAsync(
-                () => true,
-                async (value) => { await Task.Delay(10); return value; },
+            await waiter.GenericWaitForAsync<bool>(
+                () => Task.FromResult(true),
+                (value) => value,
                 "Async condition is true",
                 @long,
                 GetPositiveTimeout(),
@@ -74,9 +74,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         public virtual async Task IfTheAsyncConditionEventuallyBecomesTrue_ThenNoExceptionIsThrown()
         {
             int counter = 0;
-            await waiter.GenericWaitForAsync(
-                () => counter++,
-                async (value) => { await Task.Delay(10); return value > 3; },
+            await waiter.GenericWaitForAsync<int>(
+                () => Task.FromResult(counter++),
+                (value) => value > 3,
                 "Counter reaches threshold",
                 @long,
                 GetPositiveTimeout(),
@@ -93,9 +93,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         {
             try
             {
-                await waiter.GenericWaitForAsync(
-                    () => false,
-                    async (value) => { await Task.Delay(10); return value; },
+                await waiter.GenericWaitForAsync<bool>(
+                    () => Task.FromResult(false),
+                    (value) => value,
                     "Async condition is false",
                     @long,
                     GetPositiveTimeout(),
@@ -117,14 +117,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public virtual async Task IfTheAsyncConditionWithComplexOperation_ThenNoExceptionIsThrown()
         {
-            await waiter.GenericWaitForAsync(
-                () => "test",
-                async (value) => 
-                { 
-                    await Task.Delay(50);
-                    var result = await Task.Run(() => value == "test");
-                    return result;
-                },
+            await waiter.GenericWaitForAsync<string>(
+                () => Task.FromResult("test"),
+                (value) => value == "test",
                 "Complex async operation",
                 @long,
                 GetPositiveTimeout(),
@@ -139,13 +134,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public virtual async Task IfTheAsyncConditionWithGenericType_ThenNoExceptionIsThrown()
         {
-            await waiter.GenericWaitForAsync(
-                () => 42,
-                async (value) => 
-                { 
-                    await Task.Delay(10);
-                    return value == 42;
-                },
+            await waiter.GenericWaitForAsync<int>(
+                () => Task.FromResult(42),
+                (value) => value == 42,
                 "Integer value matches",
                 @long,
                 GetPositiveTimeout(),
@@ -163,13 +154,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         {
             try
             {
-                await waiter.GenericWaitForAsync(
-                    () => "test",
-                    async (value) => 
-                    { 
-                        await Task.Delay(10);
-                        throw new InvalidOperationException("Test exception");
-                    },
+                await waiter.GenericWaitForAsync<string>(
+                    () => Task.FromResult("test"),
+                    (value) => throw new InvalidOperationException("Test exception"),
                     "Async condition throws",
                     @long,
                     GetPositiveTimeout(),
@@ -196,11 +183,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
             {
                 await waiter.GenericWaitForAsync<object>(
                     null,
-                    async (value) => 
-                    { 
-                        await Task.Delay(10);
-                        return false;
-                    },
+                    (value) => false,
                     "Null function with async condition",
                     @long,
                     GetPositiveTimeout(),
@@ -223,13 +206,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         public virtual async Task IfTheAsyncConditionWithFastPolling_ThenNoExceptionIsThrown()
         {
             int counter = 0;
-            await waiter.GenericWaitForAsync(
-                () => counter++,
-                async (value) => 
-                { 
-                    await Task.Delay(5);
-                    return value > 2;
-                },
+            await waiter.GenericWaitForAsync<int>(
+                () => Task.FromResult(counter++),
+                (value) => value > 2,
                 "Fast polling",
                 @long,
                 GetPositiveTimeout(),
@@ -244,13 +223,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public virtual async Task IfTheAsyncConditionWithSlowPolling_ThenNoExceptionIsThrown()
         {
-            await waiter.GenericWaitForAsync(
-                () => true,
-                async (value) => 
-                { 
-                    await Task.Delay(10);
-                    return value;
-                },
+            await waiter.GenericWaitForAsync<bool>(
+                () => Task.FromResult(true),
+                (value) => value,
                 "Slow polling",
                 @long,
                 GetPositiveTimeout(),
@@ -265,15 +240,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public virtual async Task AsyncConditionDoesNotDeadlock()
         {
-            var task = waiter.GenericWaitForAsync(
-                () => true,
-                async (value) => 
-                { 
-                    // Simulate an async operation that needs to return to context
-                    await Task.Delay(100).ConfigureAwait(false);
-                    await Task.Yield();
-                    return value;
-                },
+            var task = waiter.GenericWaitForAsync<bool>(
+                () => Task.FromResult(true),
+                (value) => value,
                 "No deadlock test",
                 @long,
                 GetPositiveTimeout(),
@@ -286,15 +255,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
 
             Thread.Sleep(100); // Give some time to ensure no deadlock occurs
 
-            waiter.GenericWaitForAsync(
-                () => true,
-                async (value) => 
-                { 
-                    // Simulate an async operation that needs to return to context
-                    await Task.Delay(100).ConfigureAwait(false);
-                    await Task.Yield();
-                    return value;
-                },
+            waiter.GenericWaitForAsync<bool>(
+                () => Task.FromResult(true),
+                (value) => value,
                 "No deadlock test",
                 @long,
                 GetPositiveTimeout(),
@@ -338,9 +301,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         {
             try
             {
-                await waiter.GenericWaitForAsync(
-                    () => true,
-                    async (value) => { await Task.Delay(10); return value; },
+                await waiter.GenericWaitForAsync<bool>(
+                    () => Task.FromResult(true),
+                    (value) => value,
                     "Async condition with action text",
                     @long,
                     TimeSpan.Zero,
@@ -364,9 +327,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         {
             try
             {
-                await waiter.GenericWaitForAsync(
-                    () => true,
-                    async (value) => { await Task.Delay(10); return value; },
+                await waiter.GenericWaitForAsync<bool>(
+                    () => Task.FromResult(true),
+                    (value) => value,
                     "Async condition with positive timeout",
                     @long,
                     TimeSpan.MaxValue,
@@ -408,9 +371,9 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         [Test]
         public async Task IfTheAsyncConditionIsTrue_WithClickThrough_ThenNoExceptionIsThrown()
         {
-            await waiter.GenericWaitForAsync(
-                () => true,
-                async (value) => { await Task.Delay(10); return value; },
+            await waiter.GenericWaitForAsync<bool>(
+                () => Task.FromResult(true),
+                (value) => value,
                 "Async condition with click-through",
                 @long,
                 TimeSpan.FromMilliseconds(200), // Very short positive timeout for auto-close

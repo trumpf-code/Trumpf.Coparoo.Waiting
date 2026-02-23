@@ -195,7 +195,7 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="pollingPeriod">The polling time.</param>
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
-        public async Task GenericWaitForAsync<T>(Func<T> function, Func<T, Task<bool>> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        public async Task GenericWaitForAsync<T>(Func<Task<T>> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
             // Throw exception if action text is provided (requires human interaction)
             if (!string.IsNullOrEmpty(actionText))
@@ -235,11 +235,11 @@ namespace Trumpf.Coparoo.Waiting
                     // Evaluate function if provided
                     if (function != null)
                     {
-                        result = function();
+                        result = await function().ConfigureAwait(false);
                     }
 
                     // Evaluate condition
-                    bool conditionMet = condition == null ? Convert.ToBoolean(result) : await condition(result).ConfigureAwait(false);
+                    bool conditionMet = condition == null ? Convert.ToBoolean(result) : condition(result);
 
                     // Clear exception on successful evaluation
                     lastException = null;

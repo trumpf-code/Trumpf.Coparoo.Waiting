@@ -18,6 +18,7 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     using NUnit.Framework;
     using AwesomeAssertions;
     using Trumpf.Coparoo.Waiting.Interfaces;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// Tests for DefaultWaiter configuration in Wait and TryWait classes.
@@ -197,8 +198,8 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
             }
 
             public System.Threading.Tasks.Task GenericWaitForAsync<T>(
-                Func<T> function, 
-                Func<T, System.Threading.Tasks.Task<bool>> condition, 
+                Func<Task<T>> function,
+                Predicate<T> condition, 
                 string expectationText, 
                 TimeSpan negativeTimeout, 
                 TimeSpan positiveTimeout, 
