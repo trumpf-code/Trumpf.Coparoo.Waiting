@@ -38,6 +38,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         private TimeSpan bto;
         private TimeSpan negativeTimeout;
         private DialogView uic;
+        private Exception lastException;
         private static readonly TimeSpan timerPeriod = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan positiveWaitTime = TimeSpan.FromSeconds(0);
@@ -429,21 +430,45 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             {
                 stopwatch.Restart();
 
-                if (function != null)
+                try
                 {
-                    value = await function();
-                    if (first || !value.Equals(lastValue))
+                    if (function != null)
                     {
-                        OnValueChanged(value.ToString());
-                        lastValue = value;
+                        value = await function();
+                        if (first || !value.Equals(lastValue))
+                        {
+                            OnValueChanged(value.ToString());
+                            lastValue = value;
+                        }
                     }
-                }
 
-                truth = condition(value);
-                if (first || !truth.Equals(lastTruth))
+                    truth = condition(value);
+                    if (first || !truth.Equals(lastTruth))
+                    {
+                        OnTruthChanged(truth);
+                        lastTruth = truth;
+                    }
+
+                    // Clear exception on successful evaluation
+                    lastException = null;
+                }
+                catch (WaitForTimeoutException)
                 {
-                    OnTruthChanged(truth);
-                    lastTruth = truth;
+                    // Re-throw timeout exceptions immediately
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Store exception and treat as condition not met (retry on next poll)
+                    lastException = ex;
+                    
+                    // Treat exception as false condition
+                    truth = false;
+                    if (first || !truth.Equals(lastTruth))
+                    {
+                        OnTruthChanged(truth);
+                        lastTruth = truth;
+                    }
                 }
 
                 var remaining = pollingPeriod - stopwatch.Elapsed;
@@ -455,6 +480,9 @@ namespace Trumpf.Coparoo.Waiting.WinForms
 
         public async Task GenericWaitForAsync<T>(Func<Task<T>> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
         {
+            // Reset exception tracking
+            lastException = null;
+
             await Task.Run(async () =>
             {
                 // init
@@ -486,6 +514,13 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                         return;
 
                     case State.bad_timedout:
+                        // Throw stored exception if available, otherwise timeout exception
+                        if (lastException != null)
+                        {
+                            var ex = lastException;
+                            lastException = null;
+                            throw ex;
+                        }
                         throw new WaitForTimeoutException(expectationText, negativeTimeout);
 
                     case State.bad_userexit:

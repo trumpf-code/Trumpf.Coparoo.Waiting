@@ -144,7 +144,7 @@ namespace Trumpf.Coparoo.Waiting.Extensions
             }
             else
             {
-                waiter.WaitFor<object>(null, _ => function(), expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, null);
+                waiter.WaitFor<object>(() => function(), b => (bool)b, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, null);
             }
         }
 
