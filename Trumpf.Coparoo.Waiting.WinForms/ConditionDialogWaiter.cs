@@ -135,6 +135,13 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                 switch (state)
                 {
                     case State.init:
+                    case State.unknown:
+                        // Tolerate duplicate Load events (can occur in some WinForms scenarios)
+                        if (state == State.unknown)
+                        {
+                            return; // Already initialized
+                        }
+
                         uic.ExpectationText = expectationText;
                         if (actionText != null)
                         {
@@ -161,8 +168,8 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// </summary>
         private void EnterExitBad()
         {
-            uic.Close();
             state = bto <= TimeSpan.Zero ? State.bad_timedout : State.bad_userexit;
+            uic.Close();
         }
 
         /// <summary>
@@ -174,6 +181,10 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             {
                 switch (state)
                 {
+                    case State.init:
+                        // Ignore clicks during initialization
+                        break;
+
                     case State.unknown:
                     case State.good:
                     case State.bad:
@@ -197,8 +208,8 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// </summary>
         private void EnterExitGood()
         {
-            uic.Close();
             state = gto <= TimeSpan.Zero ? State.good_timedout : State.good_userexit;
+            uic.Close();
         }
 
         /// <summary>
@@ -210,6 +221,11 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             {
                 switch (state)
                 {
+                    case State.init:
+                    case State.bad:
+                        // Ignore clicks during initialization or when condition is false
+                        break;
+
                     case State.good:
                     case State.unknown:
                         EnterExitGood();
@@ -302,6 +318,10 @@ namespace Trumpf.Coparoo.Waiting.WinForms
             {
                 switch (state)
                 {
+                    case State.init:
+                        // Ignore timer during initialization
+                        break;
+
                     case State.unknown:
                     case State.bad:
                         bto -= bto == TimeSpan.MaxValue ? TimeSpan.Zero : timerPeriod;
@@ -511,6 +531,8 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                 {
                     case State.good_userexit:
                     case State.good_timedout:
+                    case State.good:
+                        // Good states: condition was met (or user confirmed it)
                         return;
 
                     case State.bad_timedout:
@@ -524,6 +546,10 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                         throw new WaitForTimeoutException(expectationText, negativeTimeout);
 
                     case State.bad_userexit:
+                    case State.bad:
+                    case State.unknown:
+                    case State.init:
+                        // Dialog closed abnormally without reaching terminal state
                         throw new WaitForAbortedException(expectationText);
 
                     default: throw new InvalidOperationException(state.ToString());
