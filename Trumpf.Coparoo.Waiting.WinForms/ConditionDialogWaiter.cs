@@ -39,6 +39,7 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         private TimeSpan negativeTimeout;
         private DialogView uic;
         private Exception lastException;
+        private readonly ManualResetEventSlim dialogLoadedEvent = new ManualResetEventSlim(false);
         private static readonly TimeSpan timerPeriod = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan positiveWaitTime = TimeSpan.FromSeconds(0);
@@ -156,6 +157,9 @@ namespace Trumpf.Coparoo.Waiting.WinForms
                         uic.AutoActionBadText = bto;
                         uic.Value = "unknown";
                         uic.Show();
+                        
+                        // Signal that dialog is loaded and ready
+                        dialogLoadedEvent.Set();
                         break;
 
                     default: throw new InvalidOperationException(state.ToString());
@@ -249,7 +253,12 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="value">The value.</param>
         private void OnValueChanged(string value)
         {
-            SpinWait.SpinUntil(() => state != State.init);
+            // Wait for dialog to be loaded with timeout to prevent infinite wait
+            if (!dialogLoadedEvent.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // Dialog load timed out - this shouldn't happen in normal operation
+                return;
+            }
 
             lock (m)
             {
@@ -279,7 +288,12 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="truth">The truth value.</param>
         private void OnTruthChanged(bool truth)
         {
-            SpinWait.SpinUntil(() => state != State.init);
+            // Wait for dialog to be loaded with timeout to prevent infinite wait
+            if (!dialogLoadedEvent.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // Dialog load timed out - this shouldn't happen in normal operation
+                return;
+            }
 
             lock (m)
             {
@@ -399,7 +413,12 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         /// <param name="c">The cancellation token.</param>
         private async Task TimerAsnc(CancellationToken c)
         {
-            SpinWait.SpinUntil(() => state != State.init);
+            // Wait for dialog to be loaded with timeout to prevent infinite wait
+            if (!dialogLoadedEvent.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // Dialog load timed out - this shouldn't happen in normal operation
+                return;
+            }
 
             while (!c.IsCancellationRequested)
             {
@@ -502,6 +521,9 @@ namespace Trumpf.Coparoo.Waiting.WinForms
         {
             // Reset exception tracking
             lastException = null;
+            
+            // Reset dialog loaded event for this wait operation
+            dialogLoadedEvent.Reset();
 
             await Task.Run(async () =>
             {
