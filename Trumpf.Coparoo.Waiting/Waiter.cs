@@ -19,7 +19,7 @@ namespace Trumpf.Coparoo.Waiting
 
     /// <summary>
     /// Provides static access to waiter functionality with full control over all parameters.
-    /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+    /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>.
     /// </summary>
     /// <remarks>
     /// Use this class when you need access to advanced parameters like <c>expectationText</c>, 
@@ -30,7 +30,7 @@ namespace Trumpf.Coparoo.Waiting
     {
         /// <summary>
         /// Waits until a function evaluates to <c>true</c>.
-        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>.
         /// </summary>
         /// <typeparam name="T">The return type of the function.</typeparam>
         /// <param name="function">The function to evaluate.</param>
@@ -76,7 +76,7 @@ namespace Trumpf.Coparoo.Waiting
             bool clickThrough,
             string actionText)
         {
-            WaiterConfiguration.DefaultWaiter.GenericWaitFor(
+            WaiterConfiguration.CreateWaiter().GenericWaitFor(
                 function,
                 condition,
                 expectationText,
@@ -89,7 +89,7 @@ namespace Trumpf.Coparoo.Waiting
 
         /// <summary>
         /// Waits asynchronously until a function evaluates to <c>true</c>.
-        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>.
         /// </summary>
         /// <typeparam name="T">The return type of the function.</typeparam>
         /// <param name="function">The function to evaluate.</param>
@@ -124,7 +124,7 @@ namespace Trumpf.Coparoo.Waiting
             bool clickThrough,
             string actionText)
         {
-            return WaiterConfiguration.DefaultWaiter.GenericWaitForAsync(
+            return WaiterConfiguration.CreateWaiter().GenericWaitForAsync(
                 function,
                 condition,
                 expectationText,

@@ -26,36 +26,33 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     [TestFixture]
     public class DefaultWaiterTests
     {
-        private IWaiter originalWaitWaiter;
-        private IWaiter originalTryWaitWaiter;
+        private Func<IWaiter> originalFactory;
 
         [SetUp]
         public void Setup()
         {
-            // Save original waiters
-            originalWaitWaiter = Trumpf.Coparoo.Waiting.Wait.DefaultWaiter;
-            originalTryWaitWaiter = Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter;
+            // Save original factory
+            originalFactory = WaiterConfiguration.DefaultWaiterFactory;
         }
 
         [TearDown]
         public void TearDown()
         {
-            // Restore original waiters
-            Trumpf.Coparoo.Waiting.Wait.DefaultWaiter = originalWaitWaiter;
-            Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter = originalTryWaitWaiter;
+            // Restore original factory
+            WaiterConfiguration.DefaultWaiterFactory = originalFactory;
         }
 
         /// <summary>
-        /// Test that Wait.DefaultWaiter defaults to SilentWaiter
+        /// Test that Wait.DefaultWaiterFactory defaults to creating SilentWaiter
         /// </summary>
         [Test]
         public void Wait_DefaultWaiter_Should_Be_SilentWaiter()
         {
             // Reset to default
-            Trumpf.Coparoo.Waiting.Wait.DefaultWaiter = new SilentWaiter();
-            
+            WaiterConfiguration.DefaultWaiterFactory = () => new SilentWaiter();
+
             // Act
-            var waiter = Trumpf.Coparoo.Waiting.Wait.DefaultWaiter;
+            var waiter = WaiterConfiguration.CreateWaiter();
 
             // Assert
             Assert.IsNotNull(waiter);
@@ -63,16 +60,16 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         }
 
         /// <summary>
-        /// Test that TryWait.DefaultWaiter defaults to SilentWaiter
+        /// Test that TryWait.DefaultWaiterFactory defaults to creating SilentWaiter
         /// </summary>
         [Test]
         public void TryWait_DefaultWaiter_Should_Be_SilentWaiter()
         {
             // Reset to default
-            Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter = new SilentWaiter();
-            
+            WaiterConfiguration.DefaultWaiterFactory = () => new SilentWaiter();
+
             // Act
-            var waiter = Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter;
+            var waiter = WaiterConfiguration.CreateWaiter();
 
             // Assert
             Assert.IsNotNull(waiter);
@@ -80,68 +77,81 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         }
 
         /// <summary>
-        /// Test that Wait.DefaultWaiter can be changed
+        /// Test that DefaultWaiterFactory can be changed
         /// </summary>
         [Test]
-        public void Wait_DefaultWaiter_Can_Be_Changed()
+        public void Wait_DefaultWaiterFactory_Can_Be_Changed()
         {
             // Arrange
             var customWaiter = new SilentWaiter();
+            WaiterConfiguration.DefaultWaiterFactory = () => customWaiter;
 
-            // Act
-            Trumpf.Coparoo.Waiting.Wait.DefaultWaiter = customWaiter;
-
-            // Assert
-            Assert.AreSame(customWaiter, Trumpf.Coparoo.Waiting.Wait.DefaultWaiter);
+            // Act & Assert
+            Assert.AreSame(customWaiter, WaiterConfiguration.CreateWaiter());
         }
 
         /// <summary>
-        /// Test that TryWait.DefaultWaiter can be changed
+        /// Test that TryWait.DefaultWaiterFactory can be changed
         /// </summary>
         [Test]
-        public void TryWait_DefaultWaiter_Can_Be_Changed()
+        public void TryWait_DefaultWaiterFactory_Can_Be_Changed()
         {
             // Arrange
             var customWaiter = new SilentWaiter();
+            WaiterConfiguration.DefaultWaiterFactory = () => customWaiter;
 
-            // Act
-            Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter = customWaiter;
-
-            // Assert
-            Assert.AreSame(customWaiter, Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter);
+            // Act & Assert
+            Assert.AreSame(customWaiter, WaiterConfiguration.CreateWaiter());
         }
 
         /// <summary>
-        /// Test that Wait.DefaultWaiter throws when set to null
+        /// Test that DefaultWaiterFactory throws when set to null
         /// </summary>
         [Test]
-        public void Wait_DefaultWaiter_Should_Throw_When_Set_To_Null()
+        public void Wait_DefaultWaiterFactory_Should_Throw_When_Set_To_Null()
         {
             // Act & Assert
-            Action act = () => Trumpf.Coparoo.Waiting.Wait.DefaultWaiter = null;
+            Action act = () => WaiterConfiguration.DefaultWaiterFactory = null;
             act.Should().Throw<ArgumentNullException>();
         }
 
         /// <summary>
-        /// Test that TryWait.DefaultWaiter throws when set to null
+        /// Test that TryWait.DefaultWaiterFactory throws when set to null
         /// </summary>
         [Test]
-        public void TryWait_DefaultWaiter_Should_Throw_When_Set_To_Null()
+        public void TryWait_DefaultWaiterFactory_Should_Throw_When_Set_To_Null()
         {
             // Act & Assert
-            Action act = () => Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter = null;
+            Action act = () => WaiterConfiguration.DefaultWaiterFactory = null;
             act.Should().Throw<ArgumentNullException>();
         }
 
         /// <summary>
-        /// Test that Wait.For uses the configured DefaultWaiter
+        /// Test that each CreateWaiter call returns a fresh instance when factory creates new instances
+        /// </summary>
+        [Test]
+        public void CreateWaiter_Should_Return_Fresh_Instances()
+        {
+            // Arrange
+            WaiterConfiguration.DefaultWaiterFactory = () => new SilentWaiter();
+
+            // Act
+            var waiter1 = WaiterConfiguration.CreateWaiter();
+            var waiter2 = WaiterConfiguration.CreateWaiter();
+
+            // Assert
+            Assert.AreNotSame(waiter1, waiter2);
+        }
+
+        /// <summary>
+        /// Test that Wait.For uses the configured DefaultWaiterFactory
         /// </summary>
         [Test]
         public void Wait_For_Should_Use_DefaultWaiter()
         {
             // Arrange
             var testWaiter = new TestWaiter();
-            Trumpf.Coparoo.Waiting.Wait.DefaultWaiter = testWaiter;
+            WaiterConfiguration.DefaultWaiterFactory = () => testWaiter;
 
             // Act
             Trumpf.Coparoo.Waiting.Wait.For(() => true, TimeSpan.FromMilliseconds(100));
@@ -151,14 +161,14 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
         }
 
         /// <summary>
-        /// Test that TryWait.For uses the configured DefaultWaiter
+        /// Test that TryWait.For uses the configured DefaultWaiterFactory
         /// </summary>
         [Test]
         public void TryWait_For_Should_Use_DefaultWaiter()
         {
             // Arrange
             var testWaiter = new TestWaiter();
-            Trumpf.Coparoo.Waiting.TryWait.DefaultWaiter = testWaiter;
+            WaiterConfiguration.DefaultWaiterFactory = () => testWaiter;
 
             // Act
             Trumpf.Coparoo.Waiting.TryWait.For(() => true, TimeSpan.FromMilliseconds(100));

@@ -23,11 +23,13 @@ namespace Trumpf.Coparoo.Waiting
     /// </summary>
     public static class WaiterConfiguration
     {
-        private static IWaiter defaultWaiter;
+        private static Func<IWaiter> defaultWaiterFactory;
 
         /// <summary>
-        /// Gets or sets the default waiter implementation used by <see cref="Wait"/>, <see cref="TryWait"/>, and <see cref="Waiter"/>.
-        /// If not set, defaults to <see cref="SilentWaiter"/>.
+        /// Gets or sets the factory that creates waiter instances used by <see cref="Wait"/>, <see cref="TryWait"/>, and <see cref="Waiter"/>.
+        /// Each call to <see cref="CreateWaiter"/> invokes this factory to produce a fresh <see cref="IWaiter"/> instance,
+        /// ensuring that concurrent or nested waits do not share mutable state.
+        /// If not set, defaults to creating <see cref="SilentWaiter"/> instances.
         /// </summary>
         /// <remarks>
         /// This is a shared configuration. Setting this property affects all waiting operations
@@ -35,21 +37,28 @@ namespace Trumpf.Coparoo.Waiting
         /// </remarks>
         /// <example>
         /// <code>
-        /// // Use visual dialogs for interactive testing
-        /// WaiterConfiguration.DefaultWaiter = new ConditionDialogWaiter();
+        /// // Use visual dialogs for interactive testing (each wait gets a fresh instance)
+        /// WaiterConfiguration.DefaultWaiterFactory = () => new ConditionDialogWaiter();
         /// 
         /// // Use silent waiter for CI/CD
-        /// WaiterConfiguration.DefaultWaiter = new SilentWaiter();
+        /// WaiterConfiguration.DefaultWaiterFactory = () => new SilentWaiter();
         /// 
-        /// // Now both Wait and TryWait use the configured waiter
+        /// // Now both Wait and TryWait create fresh waiters per call
         /// Wait.For(() => condition);
         /// TryWait.For(() => condition);
         /// </code>
         /// </example>
-        public static IWaiter DefaultWaiter
+        public static Func<IWaiter> DefaultWaiterFactory
         {
-            get => defaultWaiter ?? (defaultWaiter = new SilentWaiter());
-            set => defaultWaiter = value ?? throw new ArgumentNullException(nameof(value));
+            get => defaultWaiterFactory ?? (defaultWaiterFactory = () => new SilentWaiter());
+            set => defaultWaiterFactory = value ?? throw new ArgumentNullException(nameof(value));
         }
+
+        /// <summary>
+        /// Creates a new waiter instance using the configured <see cref="DefaultWaiterFactory"/>.
+        /// Each call returns a fresh instance, making it safe for nested/reentrant wait scenarios.
+        /// </summary>
+        /// <returns>A new <see cref="IWaiter"/> instance.</returns>
+        public static IWaiter CreateWaiter() => DefaultWaiterFactory();
     }
 }

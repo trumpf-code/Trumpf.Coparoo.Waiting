@@ -30,7 +30,7 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
     /// </list>
     /// </para>
     /// <para>
-    /// These static methods use the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>,
+    /// These static methods use the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>,
     /// allowing you to switch between <see cref="SilentWaiter"/> and visual waiters (like ConditionDialogWaiter)
     /// without changing your code.
     /// </para>

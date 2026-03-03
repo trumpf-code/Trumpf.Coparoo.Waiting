@@ -26,30 +26,31 @@ namespace Trumpf.Coparoo.Waiting
     public static class TryWait
     {
         /// <summary>
-        /// Gets or sets the default waiter implementation.
-        /// If not set, defaults to <see cref="SilentWaiter"/>.
+        /// Gets or sets the factory that creates waiter instances.
+        /// Each wait operation calls this factory to get a fresh <see cref="IWaiter"/> instance.
+        /// If not set, defaults to creating <see cref="SilentWaiter"/> instances.
         /// </summary>
         /// <remarks>
-        /// This property is shared with <see cref="Wait.DefaultWaiter"/> through <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// This property is shared with <see cref="Wait.DefaultWaiterFactory"/> through <see cref="WaiterConfiguration.DefaultWaiterFactory"/>.
         /// Setting this property affects both <see cref="Wait"/> and <see cref="TryWait"/> classes.
-        /// For centralized configuration, prefer using <see cref="WaiterConfiguration.DefaultWaiter"/> directly.
+        /// For centralized configuration, prefer using <see cref="WaiterConfiguration.DefaultWaiterFactory"/> directly.
         /// </remarks>
         /// <example>
         /// <code>
-        /// // Use visual dialogs for interactive testing
-        /// TryWait.DefaultWaiter = new ConditionDialogWaiter();
+        /// // Use visual dialogs for interactive testing (fresh instance per wait)
+        /// TryWait.DefaultWaiterFactory = () => new ConditionDialogWaiter();
         /// 
         /// // Use silent waiter for CI/CD
-        /// TryWait.DefaultWaiter = new SilentWaiter();
+        /// TryWait.DefaultWaiterFactory = () => new SilentWaiter();
         /// 
         /// // Or configure centrally (affects both Wait and TryWait)
-        /// WaiterConfiguration.DefaultWaiter = new ConditionDialogWaiter();
+        /// WaiterConfiguration.DefaultWaiterFactory = () => new ConditionDialogWaiter();
         /// </code>
         /// </example>
-        public static IWaiter DefaultWaiter
+        public static Func<IWaiter> DefaultWaiterFactory
         {
-            get => WaiterConfiguration.DefaultWaiter;
-            set => WaiterConfiguration.DefaultWaiter = value;
+            get => WaiterConfiguration.DefaultWaiterFactory;
+            set => WaiterConfiguration.DefaultWaiterFactory = value;
         }
 
         /// <summary>
@@ -321,7 +322,7 @@ namespace Trumpf.Coparoo.Waiting
 
         /// <summary>
         /// Waits until a function evaluates to <c>true</c> with full control over all parameters.
-        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>.
         /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).
         /// </summary>
         /// <typeparam name="T">The return type of the function.</typeparam>
@@ -334,25 +335,6 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="clickThrough">Whether to enable click-through mode for dialogs.</param>
         /// <param name="actionText">Optional action text for manual interaction scenarios.</param>
         /// <returns>True if the condition was met within the timeout, false otherwise.</returns>
-        /// <example>
-        /// <code>
-        /// // Try wait with custom expectation text
-        /// bool success = TryWait.GenericWaitFor(
-        ///     () => element.IsVisible,
-        ///     isVisible => isVisible,
-        ///     "Waiting for element to become visible",
-        ///     TimeSpan.FromSeconds(10),
-        ///     TimeSpan.Zero,
-        ///     TimeSpan.FromMilliseconds(100),
-        ///     false,
-        ///     null);
-        /// 
-        /// if (success)
-        /// {
-        ///     // Element became visible
-        /// }
-        /// </code>
-        /// </example>
         public static bool GenericWaitFor<T>(
             Func<T> function,
             Predicate<T> condition,
@@ -365,7 +347,7 @@ namespace Trumpf.Coparoo.Waiting
         {
             try
             {
-                DefaultWaiter.GenericWaitFor(
+                WaiterConfiguration.CreateWaiter().GenericWaitFor(
                     function,
                     condition,
                     expectationText,
@@ -384,7 +366,7 @@ namespace Trumpf.Coparoo.Waiting
 
         /// <summary>
         /// Waits asynchronously until a function evaluates to <c>true</c> with full control over all parameters.
-        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiter"/>.
+        /// Uses the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>.
         /// Returns <c>true</c> if the condition is met, <c>false</c> on timeout (does not throw exceptions).
         /// </summary>
         /// <typeparam name="T">The return type of the function.</typeparam>
@@ -397,20 +379,6 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="clickThrough">Whether to enable click-through mode for dialogs.</param>
         /// <param name="actionText">Optional action text for manual interaction scenarios.</param>
         /// <returns>True if the condition was met within the timeout, false otherwise.</returns>
-        /// <example>
-        /// <code>
-        /// // Async try wait with custom parameters
-        /// bool success = await TryWait.GenericWaitForAsync(
-        ///     () => GetStatus(),
-        ///     async status => await ValidateStatusAsync(status),
-        ///     "Waiting for valid status",
-        ///     TimeSpan.FromSeconds(30),
-        ///     TimeSpan.Zero,
-        ///     TimeSpan.FromMilliseconds(200),
-        ///     false,
-        ///     null);
-        /// </code>
-        /// </example>
         public static async System.Threading.Tasks.Task<bool> GenericWaitForAsync<T>(
             Func<Task<T>> function,
             Predicate<T> condition,
@@ -423,7 +391,7 @@ namespace Trumpf.Coparoo.Waiting
         {
             try
             {
-                await DefaultWaiter.GenericWaitForAsync(
+                await WaiterConfiguration.CreateWaiter().GenericWaitForAsync(
                     function,
                     condition,
                     expectationText,
@@ -455,7 +423,7 @@ namespace Trumpf.Coparoo.Waiting
 
             try
             {
-                DefaultWaiter.GenericWaitFor(
+                WaiterConfiguration.CreateWaiter().GenericWaitFor(
                     function,
                     condition,
                     string.Empty,
