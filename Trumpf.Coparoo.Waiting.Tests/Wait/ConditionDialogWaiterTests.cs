@@ -18,9 +18,11 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
 
     using NUnit.Framework;
     using Trumpf.Coparoo.Waiting.Extensions;
-    using Trumpf.Coparoo.Waiting.Extensions.ManualInteraction;
+    using Trumpf.Coparoo.Waiting.WinForms;
+    using Trumpf.Coparoo.Waiting.WinForms.Extensions;
     using Trumpf.Coparoo.Waiting.Interfaces;
     using Trumpf.Coparoo.Waiting.Tests.Base;
+    using System.Threading;
 
     /// <summary>
     /// Dialog wait for tests using ConditionDialogWaiter
@@ -28,6 +30,21 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
     [TestFixture]
     public class ConditionDialogWaiterTests : WaiterTestBase
     {
+        private Func<IWaiter> originalFactory;
+
+        [OneTimeSetUp]
+        public void ClassSetup()
+        {
+            originalFactory = WaiterConfiguration.DefaultWaiterFactory;
+            WaiterConfiguration.DefaultWaiterFactory = () => new ConditionDialogWaiter();
+        }
+
+        [OneTimeTearDown]
+        public void ClassTearDown()
+        {
+            WaiterConfiguration.DefaultWaiterFactory = originalFactory;
+        }
+
         /// <summary>
         /// Creates a ConditionDialogWaiter instance
         /// </summary>
@@ -74,6 +91,34 @@ namespace Trumpf.Coparoo.Waiting.Tests.Wait
             int exp = 10;
             int i = 0;
             waiter.WaitForUserAction("don't do anything", () => i != exp ? i++ : i, value => value == exp, $"value is {exp}");
+        }
+
+        [Test]
+        public void TestAsTouchpoint()
+        {
+            ConditionalDialogWaitHelper.WaitForFuncIsExecutedAndReturnsTrue(() => GetSelectedRow() != null, "Waiting for order is selected.", TimeSpan.FromSeconds(60));
+        }
+
+        private bool? GetSelectedRow()
+        {
+            bool? result = null;
+            int iteration = 0;
+            ConditionalDialogWaitHelper.TryWaitForResult(
+                () =>
+                {
+                    Thread.Sleep(500);
+
+                    if (iteration++ > 10)
+                    {
+                        result = true;
+                    }
+
+                    return result != null;
+                },
+                TimeSpan.FromSeconds(30),
+                "Fetch selected order row.");
+
+            return result;
         }
     }
 }

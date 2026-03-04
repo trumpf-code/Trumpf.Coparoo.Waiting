@@ -68,7 +68,9 @@ jobs:
     - name: Generate NuGet Package
       if: matrix.configuration == 'Release' && success()
       run: |
-        dotnet pack ${{ env.Solution_Name }} --configuration Release --output ${{ env.Package_Output_Dir }}
+        dotnet pack ${{ env.Solution_Name }} --configuration Release --no-build --output ${{ env.Package_Output_Dir }}
+        echo "Listing NuGet packages:"
+        dir ${{ env.Package_Output_Dir }}
 
     # Sign NuGet package (optional - only if certificate is available)
     - name: Sign NuGet Package
@@ -92,12 +94,12 @@ jobs:
         # Clean up certificate file
         Remove-Item $certPath
 
-    # Upload the NuGet package as an artifact
+    # Upload the NuGet packages as artifacts
     - name: Upload NuGet Package
       if: matrix.configuration == 'Release' && success()
       uses: actions/upload-artifact@v4
       with:
-        name: nuget-package
+        name: nuget-packages
         path: ${{ env.Package_Output_Dir }}\*.nupkg
 
     # Push NuGet packages to nuget.org (only on tag pushes)

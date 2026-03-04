@@ -15,10 +15,26 @@
 namespace Trumpf.Coparoo.Waiting.Interfaces
 {
     using System;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// Interface for waiting functionality.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Do not call methods on this interface directly unless implementing custom waiter behavior.</b>
+    /// <para>
+    /// For normal usage, prefer:
+    /// <list type="bullet">
+    /// <item><description><see cref="Wait.For(Func{bool})"/> or <see cref="TryWait.For(Func{bool})"/> - for simple waiting scenarios</description></item>
+    /// <item><description><see cref="Waiter.GenericWaitFor"/> or <see cref="Waiter.GenericWaitForAsync"/> - for advanced parameters</description></item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// These static methods use the centrally configured waiter from <see cref="WaiterConfiguration.DefaultWaiterFactory"/>,
+    /// allowing you to switch between <see cref="SilentWaiter"/> and visual waiters (like ConditionDialogWaiter)
+    /// without changing your code.
+    /// </para>
+    /// </remarks>
     public interface IWaiter
     {
         /// <summary>
@@ -34,5 +50,19 @@ namespace Trumpf.Coparoo.Waiting.Interfaces
         /// <param name="clickThrough">Whether to enable click-through mode.</param>
         /// <param name="actionText">The action text.</param>
         void GenericWaitFor<T>(Func<T> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText);
+
+        /// <summary>
+        /// Waits until an async function evaluates to <c>true</c>.
+        /// Shows a dialog.
+        /// </summary>
+        /// <param name="function">The function to evaluate.</param>
+        /// <param name="condition">The async condition to evaluate on the functions return value.</param>
+        /// <param name="expectationText">Text that explains the function's expectation.</param>
+        /// <param name="negativeTimeout">The negative timeout.</param>
+        /// <param name="positiveTimeout">The positive timeout.</param>
+        /// <param name="pollingPeriod">The polling time.</param>
+        /// <param name="clickThrough">Whether to enable click-through mode.</param>
+        /// <param name="actionText">The action text.</param>
+        Task GenericWaitForAsync<T>(Func<Task<T>> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText);
     }
 }

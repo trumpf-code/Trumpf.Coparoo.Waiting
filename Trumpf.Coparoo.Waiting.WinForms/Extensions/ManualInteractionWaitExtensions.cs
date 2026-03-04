@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Trumpf.Coparoo.Waiting.Extensions.ManualInteraction
+namespace Trumpf.Coparoo.Waiting.WinForms.Extensions
 {
     using System;
 
-    using Interfaces;
+    using Trumpf.Coparoo.Waiting.Extensions;
+    using Trumpf.Coparoo.Waiting.Interfaces;
 
     /// <summary>
     /// Extension methods for IWaiter manual interaction operations.

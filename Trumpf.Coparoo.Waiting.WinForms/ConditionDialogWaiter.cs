@@ -1,4 +1,4 @@
-﻿// Copyright 2016 - 2025 TRUMPF Werkzeugmaschinen GmbH + Co. KG.
+// Copyright 2016 - 2025 TRUMPF Werkzeugmaschinen GmbH + Co. KG.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Trumpf.Coparoo.Waiting
+namespace Trumpf.Coparoo.Waiting.WinForms
 {
     using System;
     using System.Diagnostics;
@@ -38,6 +38,8 @@ namespace Trumpf.Coparoo.Waiting
         private TimeSpan bto;
         private TimeSpan negativeTimeout;
         private DialogView uic;
+        private Exception lastException;
+        private readonly ManualResetEventSlim dialogLoadedEvent = new ManualResetEventSlim(false);
         private static readonly TimeSpan timerPeriod = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan negativeWaitTime = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan positiveWaitTime = TimeSpan.FromSeconds(0);
@@ -134,6 +136,13 @@ namespace Trumpf.Coparoo.Waiting
                 switch (state)
                 {
                     case State.init:
+                    case State.unknown:
+                        // Tolerate duplicate Load events (can occur in some WinForms scenarios)
+                        if (state == State.unknown)
+                        {
+                            return; // Already initialized
+                        }
+
                         uic.ExpectationText = expectationText;
                         if (actionText != null)
                         {
@@ -148,6 +157,9 @@ namespace Trumpf.Coparoo.Waiting
                         uic.AutoActionBadText = bto;
                         uic.Value = "unknown";
                         uic.Show();
+                        
+                        // Signal that dialog is loaded and ready
+                        dialogLoadedEvent.Set();
                         break;
 
                     default: throw new InvalidOperationException(state.ToString());
@@ -160,8 +172,8 @@ namespace Trumpf.Coparoo.Waiting
         /// </summary>
         private void EnterExitBad()
         {
-            uic.Close();
             state = bto <= TimeSpan.Zero ? State.bad_timedout : State.bad_userexit;
+            uic.Close();
         }
 
         /// <summary>
@@ -173,6 +185,10 @@ namespace Trumpf.Coparoo.Waiting
             {
                 switch (state)
                 {
+                    case State.init:
+                        // Ignore clicks during initialization
+                        break;
+
                     case State.unknown:
                     case State.good:
                     case State.bad:
@@ -196,8 +212,8 @@ namespace Trumpf.Coparoo.Waiting
         /// </summary>
         private void EnterExitGood()
         {
-            uic.Close();
             state = gto <= TimeSpan.Zero ? State.good_timedout : State.good_userexit;
+            uic.Close();
         }
 
         /// <summary>
@@ -209,6 +225,11 @@ namespace Trumpf.Coparoo.Waiting
             {
                 switch (state)
                 {
+                    case State.init:
+                    case State.bad:
+                        // Ignore clicks during initialization or when condition is false
+                        break;
+
                     case State.good:
                     case State.unknown:
                         EnterExitGood();
@@ -232,7 +253,12 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="value">The value.</param>
         private void OnValueChanged(string value)
         {
-            SpinWait.SpinUntil(() => state != State.init);
+            // Wait for dialog to be loaded with timeout to prevent infinite wait
+            if (!dialogLoadedEvent.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // Dialog load timed out - this shouldn't happen in normal operation
+                return;
+            }
 
             lock (m)
             {
@@ -262,7 +288,12 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="truth">The truth value.</param>
         private void OnTruthChanged(bool truth)
         {
-            SpinWait.SpinUntil(() => state != State.init);
+            // Wait for dialog to be loaded with timeout to prevent infinite wait
+            if (!dialogLoadedEvent.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // Dialog load timed out - this shouldn't happen in normal operation
+                return;
+            }
 
             lock (m)
             {
@@ -301,6 +332,10 @@ namespace Trumpf.Coparoo.Waiting
             {
                 switch (state)
                 {
+                    case State.init:
+                        // Ignore timer during initialization
+                        break;
+
                     case State.unknown:
                     case State.bad:
                         bto -= bto == TimeSpan.MaxValue ? TimeSpan.Zero : timerPeriod;
@@ -354,45 +389,10 @@ namespace Trumpf.Coparoo.Waiting
         {
             try
             {
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
-                    // init
-                    state = State.init;
-                    this.positiveTimeout = positiveTimeout;
-                    this.negativeTimeout = negativeTimeout;
-                    uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
-
-                    // spawn
-                    var c = new CancellationTokenSource();
-                    Task ui = new Task(() => uic.UI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick), c.Token);
-                    Task ti = new Task(() => Timer(c.Token));
-                    Task po = new Task(() => Evaluator(c.Token, function, condition, pollingPeriod));
-
-                    // join
-                    ui.Start();
-                    ti.Start();
-                    po.Start();
-                    ui.Wait();
-
-                    c.Cancel();
-                    ti.Wait();
-                    po.Wait();
-
-                    switch (state)
-                    {
-                        case State.good_userexit:
-                        case State.good_timedout:
-                            return;
-
-                        case State.bad_timedout:
-                            throw new WaitForTimeoutException(expectationText, negativeTimeout);
-
-                        case State.bad_userexit:
-                            throw new WaitForAbortedException(expectationText);
-
-                        default: throw new InvalidOperationException(state.ToString());
-                    }
-                }).Wait();
+                    await GenericWaitForAsync(() => Task.Run(() => { return function(); }), condition, expectationText, negativeTimeout, positiveTimeout, pollingPeriod, clickThrough, actionText).ConfigureAwait(false);
+                }).GetAwaiter().GetResult();
             }
             catch (AggregateException e)
             {
@@ -411,9 +411,14 @@ namespace Trumpf.Coparoo.Waiting
         /// Timer function.
         /// </summary>
         /// <param name="c">The cancellation token.</param>
-        private void Timer(CancellationToken c)
+        private async Task TimerAsnc(CancellationToken c)
         {
-            SpinWait.SpinUntil(() => state != State.init);
+            // Wait for dialog to be loaded with timeout to prevent infinite wait
+            if (!dialogLoadedEvent.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // Dialog load timed out - this shouldn't happen in normal operation
+                return;
+            }
 
             while (!c.IsCancellationRequested)
             {
@@ -424,11 +429,11 @@ namespace Trumpf.Coparoo.Waiting
                     break;
                 }
 
-                Sleep(timerPeriod, c);
+                await SleepAsync(timerPeriod, c);
             }
         }
 
-        private static void Sleep(TimeSpan timerPeriod, CancellationToken c)
+        private static async Task SleepAsync(TimeSpan timerPeriod, CancellationToken c)
         {
             if (timerPeriod <= TimeSpan.Zero)
             {
@@ -437,7 +442,7 @@ namespace Trumpf.Coparoo.Waiting
 
             try
             {
-                Task.Run(() => Task.Delay(timerPeriod, c)).Wait();
+                await Task.Run(() => Task.Delay(timerPeriod, c));
             }
             catch (Exception)
             {
@@ -451,7 +456,7 @@ namespace Trumpf.Coparoo.Waiting
         /// <param name="function">The function to call periodically.</param>
         /// <param name="condition">The condition to evaluate on the functions return value.</param>
         /// <param name="pollingPeriod">The polling time.</param>
-        private void Evaluator<T>(CancellationToken c, Func<T> function, Predicate<T> condition, TimeSpan pollingPeriod)
+        private async Task EvaluatorAsync<T>(CancellationToken c, Func<Task<T>> function, Predicate<T> condition, TimeSpan pollingPeriod)
         {
             var stopwatch = new Stopwatch();
 
@@ -464,28 +469,114 @@ namespace Trumpf.Coparoo.Waiting
             {
                 stopwatch.Restart();
 
-                if (function != null)
+                try
                 {
-                    value = function();
-                    if (first || !value.Equals(lastValue))
+                    if (function != null)
                     {
-                        OnValueChanged(value.ToString());
-                        lastValue = value;
+                        value = await function();
+                        if (first || !value.Equals(lastValue))
+                        {
+                            OnValueChanged(value.ToString());
+                            lastValue = value;
+                        }
+                    }
+
+                    truth = condition(value);
+                    if (first || !truth.Equals(lastTruth))
+                    {
+                        OnTruthChanged(truth);
+                        lastTruth = truth;
+                    }
+
+                    // Clear exception on successful evaluation
+                    lastException = null;
+                }
+                catch (WaitForTimeoutException)
+                {
+                    // Re-throw timeout exceptions immediately
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Store exception and treat as condition not met (retry on next poll)
+                    lastException = ex;
+                    
+                    // Treat exception as false condition
+                    truth = false;
+                    if (first || !truth.Equals(lastTruth))
+                    {
+                        OnTruthChanged(truth);
+                        lastTruth = truth;
                     }
                 }
 
-                truth = condition(value);
-                if (first || !truth.Equals(lastTruth))
-                {
-                    OnTruthChanged(truth);
-                    lastTruth = truth;
-                }
-
                 var remaining = pollingPeriod - stopwatch.Elapsed;
-                Sleep(remaining, c);
+                await SleepAsync(remaining, c);
 
                 first = false;
             }
+        }
+
+        public async Task GenericWaitForAsync<T>(Func<Task<T>> function, Predicate<T> condition, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod, bool clickThrough, string actionText)
+        {
+            // Reset exception tracking
+            lastException = null;
+            
+            // Reset dialog loaded event for this wait operation
+            dialogLoadedEvent.Reset();
+
+            await Task.Run(async () =>
+            {
+                // init
+                state = State.init;
+                this.positiveTimeout = positiveTimeout;
+                this.negativeTimeout = negativeTimeout;
+                uic = new DialogView(negativeTimeout != TimeSpan.MaxValue, positiveTimeout != TimeSpan.MaxValue && positiveTimeout != TimeSpan.Zero, clickThrough, function != null, actionText, expectationText.Split('\n').Count());
+
+                // spawn
+                var c = new CancellationTokenSource();
+                Task ui = new Task(() => uic.UI(() => OnDialogLoad(expectationText, actionText), OnBadClick, OnGoodClick), c.Token);
+                Task ti = new Task(async () => await TimerAsnc(c.Token));
+                Task po = new Task(async () => await EvaluatorAsync(c.Token, function, condition, pollingPeriod));
+
+                // join
+                ui.Start();
+                ti.Start();
+                po.Start();
+                await ui.ConfigureAwait(false);
+
+                c.Cancel();
+                await ti.ConfigureAwait(false);
+                await po.ConfigureAwait(false);
+
+                switch (state)
+                {
+                    case State.good_userexit:
+                    case State.good_timedout:
+                    case State.good:
+                        // Good states: condition was met (or user confirmed it)
+                        return;
+
+                    case State.bad_timedout:
+                        // Throw stored exception if available, otherwise timeout exception
+                        if (lastException != null)
+                        {
+                            var ex = lastException;
+                            lastException = null;
+                            throw ex;
+                        }
+                        throw new WaitForTimeoutException(expectationText, negativeTimeout);
+
+                    case State.bad_userexit:
+                    case State.bad:
+                    case State.unknown:
+                    case State.init:
+                        // Dialog closed abnormally without reaching terminal state
+                        throw new WaitForAbortedException(expectationText);
+
+                    default: throw new InvalidOperationException(state.ToString());
+                }
+            });
         }
 
         /// <summary>
