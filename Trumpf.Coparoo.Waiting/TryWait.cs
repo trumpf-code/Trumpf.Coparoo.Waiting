@@ -164,7 +164,7 @@ namespace Trumpf.Coparoo.Waiting
                 timeout,
                 TimeSpan.Zero,
                 TimeSpan.FromMilliseconds(100),
-                false,
+                true,
                 null);
         }
 
@@ -204,7 +204,7 @@ namespace Trumpf.Coparoo.Waiting
                 negativeTimeout,
                 positiveTimeout,
                 pollingPeriod,
-                false,
+                true,
                 null);
         }
 
@@ -273,7 +273,7 @@ namespace Trumpf.Coparoo.Waiting
                 timeout,
                 TimeSpan.Zero,
                 TimeSpan.FromMilliseconds(100),
-                false,
+                true,
                 null);
         }
 
@@ -316,7 +316,7 @@ namespace Trumpf.Coparoo.Waiting
                 negativeTimeout,
                 positiveTimeout,
                 pollingPeriod,
-                false,
+                true,
                 null);
         }
 
@@ -430,7 +430,7 @@ namespace Trumpf.Coparoo.Waiting
                     timeout.Value,
                     TimeSpan.Zero,
                     retryPause.Value,
-                    false,
+                    true,
                     null);
                 return true;
             }

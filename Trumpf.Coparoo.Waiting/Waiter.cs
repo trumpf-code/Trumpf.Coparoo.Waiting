@@ -51,7 +51,7 @@ namespace Trumpf.Coparoo.Waiting
         ///     TimeSpan.FromSeconds(30),
         ///     TimeSpan.Zero,
         ///     TimeSpan.FromMilliseconds(100),
-        ///     false,
+        ///     true,
         ///     null);
         /// 
         /// // Wait with action text for semi-automated testing
@@ -62,7 +62,7 @@ namespace Trumpf.Coparoo.Waiting
         ///     TimeSpan.FromMinutes(2),
         ///     TimeSpan.FromSeconds(2),
         ///     TimeSpan.FromMilliseconds(500),
-        ///     false,
+        ///     true,
         ///     "Please enter credentials and click Login");
         /// </code>
         /// </example>
@@ -110,7 +110,7 @@ namespace Trumpf.Coparoo.Waiting
         ///     TimeSpan.FromSeconds(60),
         ///     TimeSpan.Zero,
         ///     TimeSpan.FromMilliseconds(200),
-        ///     false,
+        ///     true,
         ///     null);
         /// </code>
         /// </example>
