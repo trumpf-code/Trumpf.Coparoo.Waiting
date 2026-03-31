@@ -158,8 +158,8 @@ namespace Trumpf.Coparoo.Waiting
         public static bool For(Func<bool> function, string expectationText, TimeSpan timeout)
         {
             return GenericWaitFor(
-                function != null ? (Func<object>)(() => function() ? (object)true : null) : null,
-                result => result != null && (bool)result,
+                function,
+                result => result,
                 expectationText,
                 timeout,
                 TimeSpan.Zero,
@@ -198,8 +198,8 @@ namespace Trumpf.Coparoo.Waiting
         public static bool For(Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
         {
             return GenericWaitFor(
-                function != null ? (Func<object>)(() => function() ? (object)true : null) : null,
-                result => result != null && (bool)result,
+                function,
+                result => result,
                 expectationText,
                 negativeTimeout,
                 positiveTimeout,

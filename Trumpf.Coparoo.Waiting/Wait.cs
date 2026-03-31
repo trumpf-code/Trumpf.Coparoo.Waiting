@@ -144,8 +144,8 @@ namespace Trumpf.Coparoo.Waiting
         public static void For(Func<bool> function, string expectationText, TimeSpan timeout)
         {
             WaiterConfiguration.CreateWaiter().GenericWaitFor(
-                function != null ? (Func<object>)(() => function() ? (object)true : null) : null,
-                result => result != null && (bool)result,
+                function,
+                result => result,
                 expectationText,
                 timeout,
                 TimeSpan.Zero,
@@ -179,8 +179,8 @@ namespace Trumpf.Coparoo.Waiting
         public static void For(Func<bool> function, string expectationText, TimeSpan negativeTimeout, TimeSpan positiveTimeout, TimeSpan pollingPeriod)
         {
             WaiterConfiguration.CreateWaiter().GenericWaitFor(
-                function != null ? (Func<object>)(() => function() ? (object)true : null) : null,
-                result => result != null && (bool)result,
+                function,
+                result => result,
                 expectationText,
                 negativeTimeout,
                 positiveTimeout,
